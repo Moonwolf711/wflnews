@@ -1,0 +1,11 @@
+version: '3'
+services:
+  wfl-site:
+    image: nginx:alpine
+    container_name: wfl-landing-page
+    restart: unless-stopped
+    ports:
+      - "8080:80"  # Access via http://<ZIMA-IP>:8080
+    volumes:
+      # Map the ZimaCube folder to Nginx's web root
+      - /DATA/AppData/wfl-site/html:/usr/share/nginx/html
