@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WFL - Weekly Festival Lowdown</title>
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="WFL - Weekly Festival Lowdown">
+    <meta property="og:description" content="The Rundown on Everything. Lot drama, artist beef, festival intel. Coming soon.">
+    <meta property="og:type" content="website">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --orange: #ff6b35;
+            --pink: #ff3cac;
+            --purple: #a855f7;
+            --blue: #2bc0e4;
+            --cyan: #00f7ff;
+            --dark: #0a0a0f;
+            --darker: #050508;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Space Mono', monospace;
+            background: var(--darker);
+            color: #fff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        /* Animated gradient background */
+        .bg-gradient {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(ellipse at 20% 20%, rgba(255, 60, 172, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(43, 192, 228, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(168, 85, 247, 0.1) 0%, transparent 60%);
+            animation: pulse 8s ease-in-out infinite alternate;
+            z-index: -2;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.6; transform: scale(1); }
+            100% { opacity: 1; transform: scale(1.1); }
+        }
+        
+        /* Noise overlay */
+        .noise {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+            opacity: 0.03;
+            pointer-events: none;
+            z-index: -1;
+        }
+        
+        /* Scanlines */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 0, 0, 0.1) 2px,
+                rgba(0, 0, 0, 0.1) 4px
+            );
+            pointer-events: none;
+            z-index: 100;
+        }
+        
+        .container {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            position: relative;
+        }
+        
+        /* Breaking news ticker */
+        .ticker-wrap {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background: linear-gradient(90deg, var(--orange), var(--pink), var(--purple), var(--blue));
+            padding: 8px 0;
+            overflow: hidden;
+            z-index: 50;
+        }
+        
+        .ticker {
+            display: flex;
+            animation: ticker 20s linear infinite;
+        }
+        
+        .ticker-item {
+            white-space: nowrap;
+            padding: 0 50px;
+            font-family: 'Dela Gothic One', sans-serif;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--dark);
+        }
+        
+        @keyframes ticker {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        
+        /* Logo */
+        .logo-container {
+            margin-bottom: 20px;
+            animation: float 4s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .logo {
+            max-width: 350px;
+            width: 100%;
+            height: auto;
+            filter: drop-shadow(0 0 30px rgba(255, 60, 172, 0.5))
+                    drop-shadow(0 0 60px rgba(168, 85, 247, 0.3));
+        }
+        
+        /* Title */
+        .title {
+            font-family: 'Dela Gothic One', sans-serif;
+            font-size: clamp(14px, 3vw, 18px);
+            text-transform: uppercase;
+            letter-spacing: 8px;
+            background: linear-gradient(90deg, var(--orange), var(--pink), var(--purple), var(--blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .subtitle {
+            font-size: 14px;
+            color: #666;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 50px;
+        }
+        
+        /* Coming Soon Badge */
+        .badge {
+            display: inline-block;
+            padding: 8px 20px;
+            border: 1px solid var(--pink);
+            color: var(--pink);
+            font-size: 10px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 40px;
+            animation: blink 2s ease-in-out infinite;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        /* Taglines */
+        .taglines {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+        
+        .tagline {
+            font-size: 13px;
+            color: #888;
+            margin: 8px 0;
+            letter-spacing: 1px;
+        }
+        
+        .tagline span {
+            color: var(--cyan);
+        }
+        
+        /* Email Form */
+        .form-container {
+            width: 100%;
+            max-width: 450px;
+            margin-bottom: 50px;
+        }
+        
+        .form-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: #555;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .email-form {
+            display: flex;
+            gap: 0;
+            border: 1px solid #333;
+            background: rgba(255, 255, 255, 0.02);
+            overflow: hidden;
+        }
+        
+        .email-input {
+            flex: 1;
+            padding: 18px 20px;
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-family: 'Space Mono', monospace;
+            font-size: 14px;
+            outline: none;
+        }
+        
+        .email-input::placeholder {
+            color: #444;
+        }
+        
+        .submit-btn {
+            padding: 18px 30px;
+            background: linear-gradient(90deg, var(--pink), var(--purple));
+            border: none;
+            color: #fff;
+            font-family: 'Space Mono', monospace;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .submit-btn:hover {
+            background: linear-gradient(90deg, var(--purple), var(--blue));
+            box-shadow: 0 0 30px rgba(168, 85, 247, 0.5);
+        }
+        
+        /* Success message */
+        .success-msg {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: var(--cyan);
+            font-size: 14px;
+        }
+        
+        .success-msg.show {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Content categories */
+        .categories {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 60px;
+            max-width: 600px;
+        }
+        
+        .category {
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid #222;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #666;
+            transition: all 0.3s ease;
+        }
+        
+        .category:hover {
+            border-color: var(--purple);
+            color: var(--purple);
+            box-shadow: 0 0 20px rgba(168, 85, 247, 0.2);
+        }
+        
+        /* Footer */
+        .footer {
+            text-align: center;
+        }
+        
+        .footer-text {
+            font-size: 11px;
+            color: #333;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        
+        .footer-text span {
+            background: linear-gradient(90deg, var(--orange), var(--pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        /* Mobile */
+        @media (max-width: 500px) {
+            .email-form {
+                flex-direction: column;
+            }
+            
+            .submit-btn {
+                width: 100%;
+            }
+            
+            .logo {
+                max-width: 280px;
+            }
+            
+            .categories {
+                gap: 10px;
+            }
+            
+            .category {
+                padding: 8px 15px;
+                font-size: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-gradient"></div>
+    <div class="noise"></div>
+    <div class="scanlines"></div>
+    
+    <!-- Breaking News Ticker -->
+    <div class="ticker-wrap">
+        <div class="ticker">
+            <span class="ticker-item">🚨 Breaking: Lot drama unfolds at Scamp 2025</span>
+            <span class="ticker-item">⚡ Artist beef: Who unfollowed who?</span>
+            <span class="ticker-item">🎪 Festival intel you won't find anywhere else</span>
+            <span class="ticker-item">🔥 Heady trades gone wrong</span>
+            <span class="ticker-item">📍 The rundown on everything</span>
+            <span class="ticker-item">🚨 Breaking: Lot drama unfolds at Scamp 2025</span>
+            <span class="ticker-item">⚡ Artist beef: Who unfollowed who?</span>
+            <span class="ticker-item">🎪 Festival intel you won't find anywhere else</span>
+            <span class="ticker-item">🔥 Heady trades gone wrong</span>
+            <span class="ticker-item">📍 The rundown on everything</span>
+        </div>
+    </div>
+    
+    <div class="container">
+        <!-- Logo -->
+        <div class="logo-container">
+            <!-- Replace src with your hosted logo URL -->
+            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 350 150'%3E%3Cdefs%3E%3ClinearGradient id='grad' x1='0%25' y1='0%25' x2='100%25' y2='0%25'%3E%3Cstop offset='0%25' style='stop-color:%23ff6b35'/%3E%3Cstop offset='25%25' style='stop-color:%23ff3cac'/%3E%3Cstop offset='50%25' style='stop-color:%23a855f7'/%3E%3Cstop offset='100%25' style='stop-color:%232bc0e4'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ctext x='50%25' y='60%25' dominant-baseline='middle' text-anchor='middle' font-family='Georgia, serif' font-size='80' font-style='italic' fill='url(%23grad)'%3EWFL%3C/text%3E%3C/svg%3E" alt="WFL" class="logo" id="logo">
+        </div>
+        
+        <h1 class="title">Weekly Festival Lowdown</h1>
+        <p class="subtitle">The Rundown on Everything</p>
+        
+        <div class="badge">Coming Soon</div>
+        
+        <div class="taglines">
+            <p class="tagline"><span>→</span> Lot drama. Artist beef. Festival intel.</p>
+            <p class="tagline"><span>→</span> The stories they don't want you to know.</p>
+            <p class="tagline"><span>→</span> Updated weekly. Heady always.</p>
+        </div>
+        
+        <!-- Email Signup -->
+        <div class="form-container">
+            <p class="form-title">Get the lowdown first</p>
+            <form class="email-form" id="signup-form">
+                <input type="email" class="email-input" placeholder="your@email.com" required>
+                <button type="submit" class="submit-btn">Subscribe</button>
+            </form>
+            <div class="success-msg" id="success-msg">
+                ✓ You're on the list. First drop coming soon.
+            </div>
+        </div>
+        
+        <!-- Categories -->
+        <div class="categories">
+            <div class="category">Lot Report</div>
+            <div class="category">Artist Beef</div>
+            <div class="category">Festival Intel</div>
+            <div class="category">Scam Alerts</div>
+            <div class="category">Heady Trades</div>
+            <div class="category">Set Reviews</div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="footer">
+            <p class="footer-text">In <span>Wook</span> We Trust</p>
+        </div>
+    </div>
+    
+    <script>
+        // Form submission
+        document.getElementById('signup-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Hide form, show success
+            this.style.display = 'none';
+            document.getElementById('success-msg').classList.add('show');
+            
+            // Here you'd normally send to your email service
+            // e.g., Mailchimp, ConvertKit, etc.
+            const email = this.querySelector('input').value;
+            console.log('Subscribed:', email);
+            
+            // Optional: Send to your backend
+            // fetch('/api/subscribe', {
+            //     method: 'POST',
+            //     body: JSON.stringify({ email }),
+            //     headers: { 'Content-Type': 'application/json' }
+            // });
+        });
+    </script>
+</body>
+</html>
