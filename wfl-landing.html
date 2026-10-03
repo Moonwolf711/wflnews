@@ -4,12 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WFL - Weekly Festival Lowdown</title>
-    
+    <meta name="description" content="WFL — the Weekly Festival Lowdown. The rundown on everything: lot drama, artist beef, festival intel. Coming soon.">
+    <meta name="theme-color" content="#050508">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23050508'/%3E%3Ctext x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' font-family='Georgia, serif' font-size='34' font-style='italic' fill='%23ff3cac'%3EW%3C/text%3E%3C/svg%3E">
+
     <!-- Open Graph -->
     <meta property="og:title" content="WFL - Weekly Festival Lowdown">
     <meta property="og:description" content="The Rundown on Everything. Lot drama, artist beef, festival intel. Coming soon.">
     <meta property="og:type" content="website">
-    
+    <meta name="twitter:card" content="summary">
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -332,6 +336,40 @@
             background-clip: text;
         }
         
+        /* Focus states and accessibility */
+        .visually-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            margin: -1px;
+            padding: 0;
+            overflow: hidden;
+            clip: rect(0 0 0 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .email-input:focus-visible,
+        .submit-btn:focus-visible {
+            outline: 2px solid var(--cyan);
+            outline-offset: 2px;
+        }
+
+        /* Respect reduced-motion preferences */
+        @media (prefers-reduced-motion: reduce) {
+            .bg-gradient,
+            .logo-container,
+            .badge,
+            .ticker {
+                animation: none;
+            }
+
+            .submit-btn,
+            .category {
+                transition: none;
+            }
+        }
+
         /* Mobile */
         @media (max-width: 500px) {
             .email-form {
@@ -363,7 +401,7 @@
     <div class="scanlines"></div>
     
     <!-- Breaking News Ticker -->
-    <div class="ticker-wrap">
+    <div class="ticker-wrap" aria-hidden="true">
         <div class="ticker">
             <span class="ticker-item">🚨 Breaking: Lot drama unfolds at Scamp 2025</span>
             <span class="ticker-item">⚡ Artist beef: Who unfollowed who?</span>
@@ -400,10 +438,11 @@
         <div class="form-container">
             <p class="form-title">Get the lowdown first</p>
             <form class="email-form" id="signup-form">
-                <input type="email" class="email-input" placeholder="your@email.com" required>
+                <label for="email-input" class="visually-hidden">Email address</label>
+                <input type="email" id="email-input" name="email" class="email-input" placeholder="your@email.com" autocomplete="email" required>
                 <button type="submit" class="submit-btn">Subscribe</button>
             </form>
-            <div class="success-msg" id="success-msg">
+            <div class="success-msg" id="success-msg" role="status" aria-live="polite">
                 ✓ You're on the list. First drop coming soon.
             </div>
         </div>
