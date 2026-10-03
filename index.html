@@ -319,6 +319,55 @@
             to { opacity: 1; transform: translateY(0); }
         }
         
+        /* Next drop countdown */
+        .drop-section {
+            text-align: center;
+            margin-bottom: 50px;
+            padding: 25px 35px;
+            border: 1px solid #222;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .drop-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: #555;
+            margin-bottom: 12px;
+        }
+
+        .drop-title {
+            font-family: 'Dela Gothic One', sans-serif;
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--cyan);
+            margin-bottom: 15px;
+        }
+
+        .countdown {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .countdown-unit {
+            text-align: center;
+        }
+
+        .countdown-value {
+            font-family: 'Dela Gothic One', sans-serif;
+            font-size: 28px;
+            color: #fff;
+        }
+
+        .countdown-label {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #555;
+        }
+
         /* Content categories */
         .categories {
             display: flex;
@@ -483,6 +532,26 @@
             </div>
         </div>
         
+        <!-- Next Drop Countdown -->
+        <section class="drop-section" aria-labelledby="drop-title">
+            <p class="drop-label">Next Drop</p>
+            <h2 class="drop-title" id="drop-title">Issue No. 001 — Friday</h2>
+            <div class="countdown" id="countdown" aria-label="Time until the next issue drops">
+                <div class="countdown-unit">
+                    <div class="countdown-value" id="cd-days">--</div>
+                    <div class="countdown-label">Days</div>
+                </div>
+                <div class="countdown-unit">
+                    <div class="countdown-value" id="cd-hours">--</div>
+                    <div class="countdown-label">Hours</div>
+                </div>
+                <div class="countdown-unit">
+                    <div class="countdown-value" id="cd-mins">--</div>
+                    <div class="countdown-label">Mins</div>
+                </div>
+            </div>
+        </section>
+
         <!-- Categories -->
         <div class="categories">
             <div class="category">Lot Report</div>
@@ -500,6 +569,28 @@
     </div>
     
     <script>
+        // Countdown to the next Friday noon drop (local time)
+        function nextDrop() {
+            const now = new Date();
+            const drop = new Date(now);
+            drop.setHours(12, 0, 0, 0);
+            let daysUntil = (5 - now.getDay() + 7) % 7; // 5 = Friday
+            if (daysUntil === 0 && now >= drop) daysUntil = 7;
+            drop.setDate(now.getDate() + daysUntil);
+            return drop;
+        }
+
+        function updateCountdown() {
+            const diff = nextDrop() - new Date();
+            const mins = Math.floor(diff / 60000);
+            document.getElementById('cd-days').textContent = Math.floor(mins / 1440);
+            document.getElementById('cd-hours').textContent = String(Math.floor((mins % 1440) / 60)).padStart(2, '0');
+            document.getElementById('cd-mins').textContent = String(mins % 60).padStart(2, '0');
+        }
+
+        updateCountdown();
+        setInterval(updateCountdown, 30000);
+
         // Checkbox logic
         const checkbox = document.getElementById('agree-check');
         const submitBtn = document.getElementById('submit-btn');
