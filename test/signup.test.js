@@ -83,7 +83,7 @@ test('invalid input and failed storage never report success', async t => {
 async function client(fetchImpl) {
     const elements = {};
     for (const id of ['signup-form', 'agree-check', 'submit-btn', 'signup-error', 'email-input', 'success-msg']) {
-        elements[id] = { checked: true, value: 'reader@example.com', textContent: 'Subscribe', style: {},
+        elements[id] = { checked: true, disabled: false, value: 'reader@example.com', textContent: 'Subscribe', style: {},
             handlers: {}, classes: new Set(), attributes: {},
             addEventListener(name, callback) { this.handlers[name] = callback; },
             reportValidity() { return true; },
@@ -133,6 +133,32 @@ test('client requires explicit consent before sending', async () => {
     await submit();
     assert.equal(elements['submit-btn'].disabled, true);
     assert.equal(calls, 0);
+});
+
+test('pending signup locks its email and consent, then a failed request permits an edited retry', async () => {
+    const requests = [];
+    let finish;
+    const { elements, submit } = await client((url, options) => {
+        requests.push(JSON.parse(options.body));
+        return new Promise(resolve => { finish = resolve; });
+    });
+    const pending = submit();
+    assert.equal(elements['email-input'].disabled, true);
+    assert.equal(elements['agree-check'].disabled, true);
+    assert.deepEqual(requests, [{ email: 'reader@example.com', consent: true }]);
+    finish({ ok: false });
+    await pending;
+    assert.equal(elements['email-input'].disabled, false);
+    assert.equal(elements['agree-check'].disabled, false);
+    assert.equal(elements['success-msg'].classes.has('show'), false);
+    elements['email-input'].value = 'corrected@example.com';
+    const retry = submit();
+    assert.equal(elements['email-input'].disabled, true);
+    assert.equal(elements['agree-check'].disabled, true);
+    assert.deepEqual(requests[1], { email: 'corrected@example.com', consent: true });
+    finish({ ok: true, json: async () => ({ subscribed: true }) });
+    await retry;
+    assert.equal(elements['success-msg'].classes.has('show'), true);
 });
 
 
