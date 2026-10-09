@@ -82,16 +82,18 @@
         <!-- Email Signup -->
         <div class="form-container">
             <p class="form-title">Get the lowdown first</p>
-            <form id="signup-form">
+            <form id="signup-form" action="/api/subscribe" method="post">
                 <div class="input-group">
                     <label for="email-input" class="visually-hidden">Email address</label>
-                    <input type="email" id="email-input" name="email" class="email-input" placeholder="your@email.com" autocomplete="email" required>
+                    <input type="email" id="email-input" name="email" class="email-input" placeholder="your@email.com" autocomplete="email" maxlength="254" required>
                     <button type="submit" class="submit-btn" id="submit-btn" disabled>Get The Lowdown</button>
                 </div>
                 <div class="legal-check">
                     <input type="checkbox" id="agree-check" required>
-                    <label for="agree-check">I Agree</label>
+                    <label for="agree-check">I agree to receive the Weekly Festival Lowdown by email.</label>
                 </div>
+                <p id="signup-error" role="alert"></p>
+                <noscript><p>Please enable JavaScript to sign up.</p></noscript>
             </form>
             <div class="success-msg" id="success-msg" role="status" aria-live="polite">
                 ✓ You're on the list. First drop coming soon.
@@ -162,35 +164,7 @@
 
         updateCountdown();
         setInterval(updateCountdown, 30000);
-
-        // Checkbox logic
-        const checkbox = document.getElementById('agree-check');
-        const submitBtn = document.getElementById('submit-btn');
-        
-        checkbox.addEventListener('change', function() {
-            submitBtn.disabled = !this.checked;
-        });
-
-        // Form submission
-        document.getElementById('signup-form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            // Hide form, show success
-            this.style.display = 'none';
-            document.getElementById('success-msg').classList.add('show');
-            
-            // Here you'd normally send to your email service
-            // e.g., Mailchimp, ConvertKit, etc.
-            const email = this.querySelector('input').value;
-            console.log('Subscribed:', email);
-            
-            // Optional: Send to your backend
-            // fetch('/api/subscribe', {
-            //     method: 'POST',
-            //     body: JSON.stringify({ email }),
-            //     headers: { 'Content-Type': 'application/json' }
-            // });
-        });
     </script>
+    <script src="signup.js" defer></script>
 </body>
 </html>

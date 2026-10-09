@@ -1,34 +1,42 @@
-# 🚀 Deploying WFL to ZimaCube (ZimaOS / CasaOS)
+# Deploy WFL to ZimaCube
 
-Use these steps to host your landing page on your ZimaCube.
+The site now saves email signups through its own Node server. Static Nginx hosting
+alone cannot accept subscriptions; both landing pages need this server.
 
-## Option A: The "Manual App" Method (Easiest)
-1.  **Open ZimaOS/CasaOS Dashboard**.
-2.  Click the **+ (Plus)** button to install a customized app.
-3.  **Fill in the fields:**
-    *   **Image:** `nginx:alpine`
-    *   **Title:** `WFL Landing Page`
-    *   **Port:** `8080` (External) -> `80` (Internal)
-4.  **Add Volume (Crucial):**
-    *   Click "Add Volume".
-    *   **Host Path:** Choose a folder on your ZimaCube (e.g., `/DATA/AppData/wfl-site/html`).
-    *   **Container Path:** `/usr/share/nginx/html`
-5.  Click **Install**.
-6.  **Upload Your Files:**
-    *   Open your ZimaCube's "Files" app.
-    *   Navigate to the folder you chose (`/DATA/AppData/wfl-site/html`).
-    *   Upload your `index.html` and assets there.
-7.  **Go Live:** Access your site at `http://<ZIMA-IP>:8080`.
+## Docker Compose
 
-## Option B: Docker Compose (Advanced)
-1.  Copy the `docker-compose.yml` file to a folder on your ZimaCube.
-2.  Run the customized app options or SSH into the box and run:
-    ```bash
-    docker-compose up -d
-    ```
+Copy the complete repository to your ZimaCube, then run from its root:
 
-## 🌍 Making it Public (Cloudflare Tunnel)
-If you want people to see this *outside* your house (standard public web):
-1.  Install **Cloudflared** from the ZimaOS App Store.
-2.  Point a tunnel to `http://localhost:8080`.
-3.  Map it to your domain (e.g., `wfl.moonwolf.io`).
+```sh
+docker compose -f zima-deploy/docker-compose.yml up -d --build
+```
+
+Open `http://<ZIMA-IP>:8080`. Route your existing HTTPS Cloudflare tunnel to this
+port for public access. The named `wfl-subscribers` volume preserves signup records
+across container replacement. Back it up and do not run `docker compose down -v`
+unless you intend to delete those records.
+
+## Without Docker
+
+Use Node 20 or newer. There are no third-party dependencies.
+
+```sh
+npm test
+npm start
+```
+
+`PORT` defaults to `8080`. `DATA_DIR` defaults to `./data` beside `server.js`;
+set it to a persistent, writable directory in production. The server runs as the
+unprivileged `node` user in Docker.
+
+## Subscriber records
+
+`DATA_DIR/subscribers.jsonl` stores one JSON record per address, with email consent
+and an ISO signup timestamp. Email addresses are normalized and duplicates are
+ignored, including after a restart. The server only confirms success after the
+record has been written and synced. Subscriber files are never served publicly,
+logged, or committed to Git.
+
+This completes the signup list, not newsletter delivery: export the private records
+to your chosen email platform when preparing the first issue. Protect exported
+subscriber data. No email-provider credentials are required to collect signups.
