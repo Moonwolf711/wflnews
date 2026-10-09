@@ -103,8 +103,10 @@
         <!-- Next Drop Countdown -->
         <section class="drop-section" aria-labelledby="drop-title">
             <p class="drop-label">Next Drop</p>
-            <h2 class="drop-title" id="drop-title">Issue No. 001 — Friday</h2>
-            <div class="countdown" id="countdown" aria-label="Time until the next issue drops">
+            <h2 class="drop-title" id="drop-title">Issue No. 001</h2>
+            <p id="drop-status" role="status">Release date to be announced.</p>
+            <time id="release-time" hidden></time>
+            <div class="countdown" id="countdown" hidden aria-label="Time until the next issue drops">
                 <div class="countdown-unit">
                     <div class="countdown-value" id="cd-days">--</div>
                     <div class="countdown-label">Days</div>
@@ -133,7 +135,7 @@
         <!-- Issue archive -->
         <section class="archive-section" id="archive" aria-labelledby="archive-heading">
             <h2 class="archive-heading" id="archive-heading">Issue archive</h2>
-            <p class="archive-note">Nothing has shipped yet. Issue No. 001 is the next Friday drop and is not in the archive.</p>
+            <p class="archive-note">Nothing has shipped yet. Issue No. 001 is not yet published and is not in the archive.</p>
         </section>
         
         <!-- Footer -->
@@ -142,29 +144,7 @@
         </div>
     </div>
     
-    <script>
-        // Countdown to the next Friday noon drop (local time)
-        function nextDrop() {
-            const now = new Date();
-            const drop = new Date(now);
-            drop.setHours(12, 0, 0, 0);
-            let daysUntil = (5 - now.getDay() + 7) % 7; // 5 = Friday
-            if (daysUntil === 0 && now >= drop) daysUntil = 7;
-            drop.setDate(now.getDate() + daysUntil);
-            return drop;
-        }
-
-        function updateCountdown() {
-            const diff = nextDrop() - new Date();
-            const mins = Math.floor(diff / 60000);
-            document.getElementById('cd-days').textContent = Math.floor(mins / 1440);
-            document.getElementById('cd-hours').textContent = String(Math.floor((mins % 1440) / 60)).padStart(2, '0');
-            document.getElementById('cd-mins').textContent = String(mins % 60).padStart(2, '0');
-        }
-
-        updateCountdown();
-        setInterval(updateCountdown, 30000);
-    </script>
+    <script src="countdown.js" defer></script>
     <script src="signup.js" defer></script>
 </body>
 </html>

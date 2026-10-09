@@ -100,6 +100,28 @@
             </div>
         </div>
         
+        <!-- Next Drop Countdown -->
+        <section class="drop-section" aria-labelledby="drop-title">
+            <p class="drop-label">Next Drop</p>
+            <h2 class="drop-title" id="drop-title">Issue No. 001</h2>
+            <p id="drop-status" role="status">Release date to be announced.</p>
+            <time id="release-time" hidden></time>
+            <div class="countdown" id="countdown" hidden aria-label="Time until the next issue drops">
+                <div class="countdown-unit">
+                    <div class="countdown-value" id="cd-days">--</div>
+                    <div class="countdown-label">Days</div>
+                </div>
+                <div class="countdown-unit">
+                    <div class="countdown-value" id="cd-hours">--</div>
+                    <div class="countdown-label">Hours</div>
+                </div>
+                <div class="countdown-unit">
+                    <div class="countdown-value" id="cd-mins">--</div>
+                    <div class="countdown-label">Mins</div>
+                </div>
+            </div>
+        </section>
+
         <!-- Categories -->
         <div class="categories">
             <div class="category">Lot Report</div>
@@ -113,7 +135,7 @@
         <!-- Issue archive -->
         <section class="archive-section" id="archive" aria-labelledby="archive-heading">
             <h2 class="archive-heading" id="archive-heading">Issue archive</h2>
-            <p class="archive-note">Nothing has shipped yet. Issue No. 001 is the next Friday drop and is not in the archive.</p>
+            <p class="archive-note">Nothing has shipped yet. Issue No. 001 is not yet published and is not in the archive.</p>
         </section>
         
         <!-- Footer -->
@@ -122,6 +144,7 @@
         </div>
     </div>
     
+    <script src="countdown.js" defer></script>
     <script src="signup.js" defer></script>
 </body>
 </html>

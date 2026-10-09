@@ -40,3 +40,17 @@ logged, or committed to Git.
 This completes the signup list, not newsletter delivery: export the private records
 to your chosen email platform when preparing the first issue. Protect exported
 subscriber data. No email-provider credentials are required to collect signups.
+
+## Release timing
+
+Both landing pages use `countdown.js`. Until a calendar date is confirmed,
+`RELEASE_AT` is `null` and the pages say “Release date to be announced.” The earlier
+rolling Friday timer did not establish a release date or publisher timezone.
+
+To announce the release, set `RELEASE_AT` to its confirmed UTC timestamp using
+`YYYY-MM-DDTHH:mm:ssZ`, then redeploy. The displayed timestamp explicitly says UTC,
+and all visitors count down to that same instant. Invalid or missing configuration
+shows the unannounced state. At the scheduled instant the timer stops and asks
+readers to check back; it never rolls forward or marks the issue published.
+Publishing an issue and updating its archive entry/structured data are editorial
+actions, separate from reaching its scheduled time.

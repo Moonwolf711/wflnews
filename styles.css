@@ -479,3 +479,6 @@ body {
         font-size: 10px;
     }
 }
+
+/* Keep inactive countdowns hidden despite their flex layout. */
+.countdown[hidden] { display: none; }

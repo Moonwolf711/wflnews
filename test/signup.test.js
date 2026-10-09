@@ -58,7 +58,7 @@ test('signups persist, deduplicate concurrently and after restart, and stay priv
     for (const resource of ['/data/subscribers.jsonl', '/subscribers.jsonl', '/server.js', '/.git/config']) {
         assert.equal((await request(app.url + resource)).status, 404);
     }
-    for (const resource of ['/', '/wfl-landing.html', '/styles.css', '/signup.js']) {
+    for (const resource of ['/', '/wfl-landing.html', '/styles.css', '/signup.js', '/countdown.js']) {
         assert.equal((await request(app.url + resource)).status, 200);
     }
 });

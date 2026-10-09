@@ -9,6 +9,7 @@ const assets = new Map([
     ['/index.html', ['index.html', 'text/html; charset=utf-8']],
     ['/wfl-landing.html', ['wfl-landing.html', 'text/html; charset=utf-8']],
     ['/styles.css', ['styles.css', 'text/css; charset=utf-8']],
+    ['/countdown.js', ['countdown.js', 'text/javascript; charset=utf-8']],
     ['/signup.js', ['signup.js', 'text/javascript; charset=utf-8']]
 ]);
 
