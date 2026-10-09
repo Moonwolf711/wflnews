@@ -20,7 +20,7 @@ async function start(dataDir) {
 // workspace disallows listen(). Requests still use streams and real disk writes.
 function request(url, options = {}) {
     const parsed = new URL(url);
-    const req = Readable.from(options.body ? [Buffer.from(options.body)] : []);
+    const req = Readable.from(options.chunks || (options.body ? [Buffer.from(options.body)] : []));
     req.url = parsed.pathname;
     req.method = options.method || 'GET';
     req.headers = Object.fromEntries(Object.entries(options.headers || {}).map(([key, value]) => [key.toLowerCase(), value]));
@@ -133,4 +133,47 @@ test('client requires explicit consent before sending', async () => {
     await submit();
     assert.equal(elements['submit-btn'].disabled, true);
     assert.equal(calls, 0);
+});
+
+
+test('chunk boundaries cannot corrupt UTF-8 subscriber addresses', async t => {
+    const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));
+    const app = await start(dataDir);
+    t.after(async () => { await app.close(); await fs.rm(dataDir, { recursive: true }); });
+    const email = 'reader@café.example';
+    const body = Buffer.from(JSON.stringify({ email, consent: true }));
+    // Network chunks can end anywhere, including inside the two bytes of é.
+    const split = body.indexOf(Buffer.from('é')) + 1;
+    const response = await request(app.url + '/api/subscribe', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        chunks: [body.subarray(0, split), body.subarray(split)]
+    });
+    assert.equal(response.status, 200);
+    assert.equal((await subscribe(app.url, { email, consent: true })).status, 200);
+    const records = (await fs.readFile(path.join(dataDir, 'subscribers.jsonl'), 'utf8')).trim().split('\n').map(JSON.parse);
+    assert.equal(records.length, 1);
+    assert.equal(records[0].email, email);
+});
+
+test('malformed UTF-8 cannot be accepted as a different subscriber address', async t => {
+    const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));
+    const app = await start(dataDir);
+    t.after(async () => { await app.close(); await fs.rm(dataDir, { recursive: true }); });
+    const response = await request(app.url + '/api/subscribe', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        chunks: [Buffer.from('{"email":"reader@caf'), Buffer.from([0xc3]), Buffer.from('.example","consent":true}')]
+    });
+    assert.equal(response.status, 400);
+    await assert.rejects(fs.readFile(path.join(dataDir, 'subscribers.jsonl')), { code: 'ENOENT' });
+});
+
+test('request limit counts original bytes across chunks with exact boundary acceptance', async t => {
+    const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));
+    const app = await start(dataDir);
+    t.after(async () => { await app.close(); await fs.rm(dataDir, { recursive: true }); });
+    const json = Buffer.from(JSON.stringify({ email: 'reader@café.example', consent: true }));
+    const body = Buffer.concat([json, Buffer.alloc(4096 - json.length, ' ')]);
+    const options = { method: 'POST', headers: { 'Content-Type': 'application/json' } };
+    assert.equal((await request(app.url + '/api/subscribe', { ...options, chunks: [body.subarray(0, 20), body.subarray(20)] })).status, 200);
+    assert.equal((await request(app.url + '/api/subscribe', { ...options, chunks: [body, Buffer.from(' ')] })).status, 413);
 });

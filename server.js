@@ -40,14 +40,20 @@ async function createServer({ dataDir = process.env.DATA_DIR || path.join(__dirn
                 if (req.headers['content-type']?.split(';')[0].trim() !== 'application/json') {
                     return reply(res, 415, { error: 'Send JSON.' });
                 }
-                let body = '';
+                const chunks = [];
+                let bodyBytes = 0;
                 for await (const chunk of req) {
-                    body += chunk;
-                    if (Buffer.byteLength(body) > 4096) return reply(res, 413, { error: 'Request too large.' });
+                    bodyBytes += chunk.length;
+                    if (bodyBytes > 4096) return reply(res, 413, { error: 'Request too large.' });
+                    chunks.push(chunk);
                 }
                 let input;
-                try { input = JSON.parse(body); }
-                catch { return reply(res, 400, { error: 'Invalid JSON.' }); }
+                try {
+                    // Decode once: a network chunk can split a UTF-8 character.
+                    // Reject invalid bytes instead of silently changing an address.
+                    const body = new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks, bodyBytes));
+                    input = JSON.parse(body);
+                } catch { return reply(res, 400, { error: 'Invalid UTF-8 JSON.' }); }
                 const email = typeof input?.email === 'string' ? input.email.trim().toLowerCase() : '';
                 if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || input?.consent !== true) {
                     return reply(res, 400, { error: 'Enter a valid email and agree to receive the Lowdown.' });
