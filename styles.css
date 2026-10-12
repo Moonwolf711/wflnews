@@ -154,6 +154,8 @@ body {
     letter-spacing: 3px;
     text-transform: uppercase;
     margin-bottom: 50px;
+    /* Wrapped lines fill the hero width; start alignment would pin them to the left edge. */
+    text-align: center;
 }
 
 /* Coming Soon Badge */
