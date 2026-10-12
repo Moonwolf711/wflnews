@@ -440,6 +440,8 @@ body {
 .legal-check input:focus-visible {
     outline: 2px solid var(--cyan);
     outline-offset: 2px;
+    /* The next control paints later and covers the shared edge of this ring. */
+    z-index: 1;
 }
 
 /* Respect reduced-motion preferences */
