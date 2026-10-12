@@ -260,7 +260,8 @@ body {
     text-transform: uppercase;
     letter-spacing: 2px;
     cursor: pointer;
-    transition: all 0.3s ease;
+    /* `all` fades Chrome's white outline-style:auto ring into the cyan one. */
+    transition: background 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease;
 }
 
 .submit-btn:hover {
