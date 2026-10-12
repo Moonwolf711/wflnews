@@ -221,19 +221,32 @@ body {
 
 .legal-check {
     margin-top: 15px;
-    font-size: 10px;
     color: #888;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
+    /* A full-width flex row pinned the wrapped line to the left edge. */
+    display: block;
+    text-align: center;
+    text-wrap: balance;
+    /* The newline between the checkbox and the label is a text node; a real font size shifts the first line. */
+    font-size: 0;
+    letter-spacing: 0;
     text-transform: uppercase;
-    letter-spacing: 1px;
 }
 
 .legal-check input {
     cursor: pointer;
     accent-color: var(--pink);
+    width: 13px;
+    height: 13px;
+    vertical-align: middle;
+    /* 13px box + 8px gap, so the box hangs beside the sentence instead of moving its center. */
+    margin-left: -21px;
+    margin-right: 8px;
+}
+
+.legal-check label {
+    font-size: 10px;
+    letter-spacing: 1px;
+    vertical-align: middle;
 }
 
 /* Wider than the form: the last word otherwise sits alone against the consent line. */
