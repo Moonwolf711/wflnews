@@ -230,6 +230,9 @@ body {
     font-size: 0;
     letter-spacing: 0;
     text-transform: uppercase;
+    /* The box hangs 21px left of the sentence. Without this room, a one-line consent parks the box past the viewport. */
+    padding-left: 21px;
+    padding-right: 21px;
 }
 
 .legal-check input {
