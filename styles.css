@@ -179,7 +179,8 @@ body {
 /* Taglines */
 .taglines {
     text-align: center;
-    margin-bottom: 50px;
+    /* 50px left the consent ring 2px from a 700px fold and the sentence past it. */
+    margin-bottom: 34px;
 }
 
 .tagline {
