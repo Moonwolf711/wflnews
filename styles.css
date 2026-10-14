@@ -187,7 +187,8 @@ body {
     font-size: 13px;
     color: #888;
     margin: 8px 0;
-    letter-spacing: 1px;
+    /* 1px wrapped "know." onto its own line at 408–416px and pushed the consent sentence past the fold. */
+    letter-spacing: 0.75px;
 }
 
 .tagline span {
