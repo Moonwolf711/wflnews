@@ -191,6 +191,13 @@ body {
     letter-spacing: 0.75px;
 }
 
+/* 0.75px still leaves "know." alone at 397–405px, so the sentence ends at y=714. */
+@media (min-width: 397px) and (max-width: 405px) {
+    .tagline {
+        letter-spacing: 0.5px;
+    }
+}
+
 .tagline span {
     color: var(--cyan);
 }
