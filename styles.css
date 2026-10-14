@@ -191,10 +191,17 @@ body {
     letter-spacing: 0.75px;
 }
 
-/* 0.75px still leaves "know." alone at 397–405px, so the sentence ends at y=714. */
-@media (min-width: 397px) and (max-width: 405px) {
+/* 0.75px still leaves "know." alone at 396–405px, so the landing sentence ends at y=734. */
+@media (min-width: 396px) and (max-width: 405px) {
     .tagline {
         letter-spacing: 0.5px;
+    }
+}
+
+/* 0.75px leaves the weekly line ~25px from a 320px edge; 0 fits it inside 36px. */
+@media (max-width: 341px) {
+    .tagline:last-child {
+        letter-spacing: 0px;
     }
 }
 
