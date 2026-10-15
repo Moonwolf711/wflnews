@@ -232,6 +232,37 @@ test('chunk boundaries cannot corrupt UTF-8 subscriber addresses', async t => {
     assert.equal(records[0].email, email);
 });
 
+test('empty address replaces a stale save error instead of asking for a retry', async () => {
+    const pages = await Promise.all(['index.html', 'wfl-landing.html'].map(file => fs.readFile(path.join(__dirname, '..', file), 'utf8')));
+    for (const html of pages) assert.match(html, /<form id="signup-form"[^>]*\snovalidate>/);
+    let calls = 0;
+    const { elements, submit } = await client(async () => { calls++; throw new Error('offline'); });
+    await submit();
+    assert.match(elements['signup-error'].textContent, /try again/);
+    assert.equal(calls, 1);
+    elements['email-input'].value = '';
+    elements['email-input'].validity = { valid: false };
+    elements['email-input'].validationMessage = 'Please fill out this field.';
+    elements['signup-form'].reportValidity = () => false;
+    await submit();
+    assert.equal(calls, 1);
+    assert.equal(elements['signup-error'].textContent, 'Please fill out this field.');
+    assert.equal(elements['email-input'].attributes['aria-invalid'], 'true');
+    assert.equal(elements['email-input'].attributes['aria-describedby'], 'signup-error');
+    assert.equal(elements['submit-btn'].disabled, false);
+    assert.equal(elements['signup-form'].style.display, undefined);
+    assert.equal(elements['success-msg'].classes.has('show'), false);
+    elements['email-input'].value = 'reader@example.com';
+    elements['email-input'].validity = { valid: true };
+    elements['email-input'].validationMessage = '';
+    elements['signup-form'].reportValidity = () => true;
+    await submit();
+    assert.equal(calls, 2);
+    assert.match(elements['signup-error'].textContent, /try again/);
+    assert.equal(elements['email-input'].attributes['aria-invalid'], undefined);
+    assert.equal(elements['submit-btn'].disabled, false);
+});
+
 test('signup keeps keyboard focus on failure and moves it to the confirmation', async () => {
     const pages = await Promise.all(['index.html', 'wfl-landing.html'].map(file => fs.readFile(path.join(__dirname, '..', file), 'utf8')));
     for (const html of pages) assert.match(html, /id="success-msg"[^>]*tabindex="-1"/);

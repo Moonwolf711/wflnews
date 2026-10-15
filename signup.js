@@ -13,15 +13,25 @@ function updateButton() {
 checkbox.addEventListener('change', updateButton);
 updateButton();
 
+function showEmailError(message) {
+    errorMsg.textContent = message || 'Enter a valid email address.';
+    emailInput.setAttribute('aria-invalid', 'true');
+    emailInput.setAttribute('aria-describedby', 'signup-error');
+    if (typeof emailInput.focus === 'function') emailInput.focus();
+}
+
 form.addEventListener('submit', async function (event) {
     event.preventDefault();
-    if (submitting || !form.reportValidity() || !checkbox.checked) return;
+    if (submitting) return;
+    // novalidate lets a required field reach here. Without it the browser
+    // swallows the submit and a previous save error stays on screen.
+    if (!form.reportValidity() || !checkbox.checked) {
+        if (emailInput.validity && !emailInput.validity.valid) showEmailError(emailInput.validationMessage);
+        return;
+    }
     const email = canonicalEmail(emailInput.value);
     if (!email) {
-        errorMsg.textContent = 'Enter a valid email address.';
-        emailInput.setAttribute('aria-invalid', 'true');
-        emailInput.setAttribute('aria-describedby', 'signup-error');
-        if (typeof emailInput.focus === 'function') emailInput.focus();
+        showEmailError();
         return;
     }
     emailInput.removeAttribute('aria-invalid');
