@@ -29,6 +29,8 @@ form.addEventListener('submit', async function (event) {
     const payload = { email, consent: checkbox.checked };
     const previousEmailDisabled = emailInput.disabled;
     const previousConsentDisabled = checkbox.disabled;
+    // Disabling the active control moves focus to the document. Remember it.
+    const returnFocus = document.activeElement;
     submitting = true;
     // Keep the visible form tied to the signup being confirmed.
     emailInput.disabled = true;
@@ -40,6 +42,7 @@ form.addEventListener('submit', async function (event) {
     submitBtn.textContent = 'Signing up…';
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
+    let succeeded = false;
     try {
         const response = await fetch('/api/subscribe', {
             method: 'POST',
@@ -48,8 +51,12 @@ form.addEventListener('submit', async function (event) {
             signal: controller.signal
         });
         if (!response.ok || (await response.json()).subscribed !== true) throw new Error('Signup failed');
+        succeeded = true;
         form.style.display = 'none';
-        document.getElementById('success-msg').classList.add('show');
+        const success = document.getElementById('success-msg');
+        success.classList.add('show');
+        success.setAttribute('tabindex', '-1');
+        if (typeof success.focus === 'function') success.focus({ preventScroll: true });
     } catch {
         errorMsg.textContent = 'We couldn’t save your signup. Please try again.';
     } finally {
@@ -60,5 +67,8 @@ form.addEventListener('submit', async function (event) {
         form.removeAttribute('aria-busy');
         submitBtn.textContent = label;
         updateButton();
+        if (!succeeded && returnFocus && typeof form.contains === 'function' && form.contains(returnFocus) && typeof returnFocus.focus === 'function') {
+            returnFocus.focus({ preventScroll: true });
+        }
     }
 });

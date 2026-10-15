@@ -478,7 +478,8 @@ body {
 
 .email-input:focus-visible,
 .submit-btn:focus-visible,
-.legal-check input:focus-visible {
+.legal-check input:focus-visible,
+.success-msg:focus-visible {
     outline: 2px solid var(--cyan);
     outline-offset: 2px;
     /* The next control paints later and covers the shared edge of this ring. */

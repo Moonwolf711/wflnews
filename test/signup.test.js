@@ -83,21 +83,24 @@ test('invalid input and failed storage never report success', async t => {
 
 async function client(fetchImpl) {
     const elements = {};
+    const documentStub = { activeElement: null, getElementById: id => elements[id] };
     for (const id of ['signup-form', 'agree-check', 'submit-btn', 'signup-error', 'email-input', 'success-msg']) {
         elements[id] = { checked: true, disabled: false, value: 'reader@example.com', textContent: 'Subscribe', style: {},
             handlers: {}, classes: new Set(), attributes: {},
             addEventListener(name, callback) { this.handlers[name] = callback; },
             reportValidity() { return true; },
             setAttribute(name, value) { this.attributes[name] = value; },
-            removeAttribute(name) { delete this.attributes[name]; }
+            removeAttribute(name) { delete this.attributes[name]; },
+            focus() { documentStub.activeElement = this; }
         };
         elements[id].classList = { add: value => elements[id].classes.add(value) };
     }
+    elements['signup-form'].contains = node => node === elements['email-input'] || node === elements['submit-btn'] || node === elements['agree-check'];
     vm.runInNewContext(await fs.readFile(path.join(__dirname, '../signup.js'), 'utf8'), {
-        document: { getElementById: id => elements[id] }, fetch: fetchImpl,
+        document: documentStub, fetch: fetchImpl,
         canonicalEmail, AbortController, setTimeout, clearTimeout
     });
-    return { elements, submit: () => elements['signup-form'].handlers.submit({ preventDefault() {} }) };
+    return { elements, document: documentStub, submit: () => elements['signup-form'].handlers.submit({ preventDefault() {} }) };
 }
 
 test('client shows success only after confirmation and prevents parallel submissions', async () => {
@@ -227,6 +230,26 @@ test('chunk boundaries cannot corrupt UTF-8 subscriber addresses', async t => {
     const records = (await fs.readFile(path.join(dataDir, 'subscribers.jsonl'), 'utf8')).trim().split('\n').map(JSON.parse);
     assert.equal(records.length, 1);
     assert.equal(records[0].email, email);
+});
+
+test('signup keeps keyboard focus on failure and moves it to the confirmation', async () => {
+    const pages = await Promise.all(['index.html', 'wfl-landing.html'].map(file => fs.readFile(path.join(__dirname, '..', file), 'utf8')));
+    for (const html of pages) assert.match(html, /id="success-msg"[^>]*tabindex="-1"/);
+    const failed = await client(async () => { throw new Error('offline'); });
+    failed.document.activeElement = failed.elements['submit-btn'];
+    await failed.submit();
+    assert.equal(failed.document.activeElement, failed.elements['submit-btn']);
+    assert.match(failed.elements['signup-error'].textContent, /try again/);
+    assert.equal(failed.elements['signup-form'].style.display, undefined);
+    assert.equal(failed.elements['submit-btn'].disabled, false);
+
+    const confirmed = await client(async () => ({ ok: true, json: async () => ({ subscribed: true }) }));
+    confirmed.document.activeElement = confirmed.elements['email-input'];
+    await confirmed.submit();
+    assert.equal(confirmed.document.activeElement, confirmed.elements['success-msg']);
+    assert.equal(confirmed.elements['success-msg'].attributes.tabindex, '-1');
+    assert.equal(confirmed.elements['success-msg'].classes.has('show'), true);
+    assert.equal(confirmed.elements['signup-form'].style.display, 'none');
 });
 
 test('malformed UTF-8 cannot be accepted as a different subscriber address', async t => {
