@@ -295,6 +295,31 @@ test('malformed UTF-8 cannot be accepted as a different subscriber address', asy
     await assert.rejects(fs.readFile(path.join(dataDir, 'subscribers.jsonl')), { code: 'ENOENT' });
 });
 
+test('format and bidi marks cannot masquerade as another signup address', async t => {
+    const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));
+    const app = await start(dataDir);
+    t.after(async () => { await app.close(); await fs.rm(dataDir, { recursive: true }); });
+    // Arabic letter mark, invisible times, C1 next line, Mongolian vowel separator.
+    for (const mark of ['\u061C', '\u2062', '\u0085', '\u180E']) {
+        const disguised = `reader${mark}@example.com`;
+        assert.notEqual(disguised.normalize('NFC').toLowerCase(), 'reader@example.com');
+        assert.equal(canonicalEmail(disguised), '');
+        assert.equal((await subscribe(app.url, { email: disguised, consent: true })).status, 400);
+    }
+    await assert.rejects(fs.readFile(path.join(dataDir, 'subscribers.jsonl')), { code: 'ENOENT' });
+    let calls = 0;
+    const { elements, submit } = await client(() => { calls++; return { ok: true, json: async () => ({ subscribed: true }) }; });
+    elements['email-input'].value = 'reader\u061C@example.com';
+    let focused = false;
+    elements['email-input'].focus = () => { focused = true; };
+    await submit();
+    assert.equal(calls, 0);
+    assert.equal(focused, true);
+    assert.match(elements['signup-error'].textContent, /valid email/);
+    assert.equal(elements['email-input'].attributes['aria-invalid'], 'true');
+    assert.equal(elements['success-msg'].classes.has('show'), false);
+});
+
 test('request limit counts original bytes across chunks with exact boundary acceptance', async t => {
     const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));
     const app = await start(dataDir);
