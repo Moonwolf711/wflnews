@@ -263,6 +263,23 @@ test('empty address replaces a stale save error instead of asking for a retry', 
     assert.equal(elements['submit-btn'].disabled, false);
 });
 
+test('consent precedes the submit button in tab order on both landing pages', async () => {
+    // A disabled submit control is skipped. It has to follow the checkbox or
+    // Tab leaves the form and the retry button cannot be reached going forward.
+    const pages = await Promise.all(['index.html', 'wfl-landing.html'].map(file => fs.readFile(path.join(__dirname, '..', file), 'utf8')));
+    for (const html of pages) {
+        const email = html.indexOf('id="email-input"');
+        const consent = html.indexOf('id="agree-check"');
+        const submit = html.indexOf('id="submit-btn"');
+        assert.ok(email !== -1 && consent !== -1 && submit !== -1);
+        assert.ok(email < consent && consent < submit, 'tab order should be email, consent, then submit');
+    }
+    const css = await fs.readFile(path.join(__dirname, '../styles.css'), 'utf8');
+    assert.match(css, /\.signup-fields\s*\{[^}]*display:\s*grid/);
+    assert.match(css, /\.signup-fields \.submit-btn\s*\{[^}]*grid-row:\s*1/);
+    assert.match(css, /\.signup-fields \.legal-check\s*\{[^}]*grid-row:\s*2/);
+});
+
 test('signup keeps keyboard focus on failure and moves it to the confirmation', async () => {
     const pages = await Promise.all(['index.html', 'wfl-landing.html'].map(file => fs.readFile(path.join(__dirname, '..', file), 'utf8')));
     for (const html of pages) assert.match(html, /id="success-msg"[^>]*tabindex="-1"/);

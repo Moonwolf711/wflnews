@@ -324,6 +324,39 @@ body {
     box-shadow: none;
 }
 
+/* Tab order is email, consent, submit. The button stays disabled until the
+   box is checked, and a disabled control is skipped, so the button has to
+   follow the checkbox or Tab leaves the form. Grid keeps it on the email row. */
+.signup-fields {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: stretch;
+}
+
+.signup-fields .email-input {
+    grid-column: 1;
+    grid-row: 1;
+    width: 100%;
+    min-width: 0;
+    border: 1px solid #333;
+    border-right: none;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.signup-fields .submit-btn {
+    grid-column: 2;
+    grid-row: 1;
+    border-top: 1px solid #333;
+    border-right: 1px solid #333;
+    border-bottom: 1px solid #333;
+    border-left: none;
+}
+
+.signup-fields .legal-check {
+    grid-column: 1 / -1;
+    grid-row: 2;
+}
+
 /* Success message */
 .success-msg {
     display: none;
@@ -510,6 +543,30 @@ body {
     .input-group,
     .email-form {
         flex-direction: column;
+    }
+
+    .signup-fields {
+        grid-template-columns: 1fr;
+    }
+
+    .signup-fields .email-input {
+        grid-column: 1;
+        grid-row: 1;
+        border-right: 1px solid #333;
+        border-bottom: none;
+    }
+
+    .signup-fields .submit-btn {
+        grid-column: 1;
+        grid-row: 2;
+        width: 100%;
+        border-left: 1px solid #333;
+        border-top: none;
+    }
+
+    .signup-fields .legal-check {
+        grid-column: 1;
+        grid-row: 3;
     }
     
     .submit-btn {

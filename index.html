@@ -83,14 +83,14 @@
         <div class="form-container">
             <p class="form-title">Get the lowdown first</p>
             <form id="signup-form" action="/api/subscribe" method="post" novalidate>
-                <div class="input-group">
+                <div class="signup-fields">
                     <label for="email-input" class="visually-hidden">Email address</label>
                     <input type="text" id="email-input" name="email" class="email-input" placeholder="your@email.com" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" maxlength="254" required>
+                    <div class="legal-check">
+                        <input type="checkbox" id="agree-check" required>
+                        <label for="agree-check">I agree to receive the Weekly Festival Lowdown by email.</label>
+                    </div>
                     <button type="submit" class="submit-btn" id="submit-btn" disabled>Get The Lowdown</button>
-                </div>
-                <div class="legal-check">
-                    <input type="checkbox" id="agree-check" required>
-                    <label for="agree-check">I agree to receive the Weekly Festival Lowdown by email.</label>
                 </div>
                 <p id="signup-error" role="alert"></p>
                 <noscript><p>Please enable JavaScript to sign up.</p></noscript>
