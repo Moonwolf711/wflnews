@@ -6,7 +6,8 @@ function canonicalEmail(value) {
     if (typeof value !== 'string') return '';
     const email = value.trim().normalize('NFC').toLowerCase();
     if (email.length === 0 || email.length > 254) return '';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return '';
+    // Dots must separate non-empty labels. A trailing or doubled dot cannot be delivered.
+    if (!/^[^\s@.]+(\.[^\s@.]+)*@[^\s@.]+(\.[^\s@.]+)+$/.test(email)) return '';
     // Format, control, and bidi characters would store one address that looks like another.
     if (/\p{Cc}|\p{Cf}/u.test(email)) return '';
     return email;
