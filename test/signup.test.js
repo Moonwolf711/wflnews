@@ -382,6 +382,37 @@ test('pasted mailbox punctuation is rejected before a signup is stored or sent',
     assert.equal(elements['success-msg'].classes.has('show'), true);
 });
 
+test('default-ignorable marks cannot masquerade as another signup address', async t => {
+    const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));
+    const app = await start(dataDir);
+    t.after(async () => { await app.close(); await fs.rm(dataDir, { recursive: true }); });
+    // Combining grapheme joiner, variation selectors, and Hangul filler are not control or format characters.
+    for (const mark of ['\u034F', '\uFE0F', '\uFE00', '\u3164']) {
+        const disguised = `reader${mark}@example.com`;
+        assert.notEqual(disguised.normalize('NFC').toLowerCase(), 'reader@example.com');
+        assert.equal(canonicalEmail(disguised), '');
+        assert.equal((await subscribe(app.url, { email: disguised, consent: true })).status, 400);
+    }
+    assert.equal(canonicalEmail('reader@example.com\u034F'), '');
+    assert.equal(canonicalEmail('first.last@example.com'), 'first.last@example.com');
+    assert.equal(canonicalEmail('user+tag@example.com'), 'user+tag@example.com');
+    assert.equal(canonicalEmail('user@münchen.de'), 'user@münchen.de');
+    assert.equal(canonicalEmail('user@my-domain.com'), 'user@my-domain.com');
+    assert.equal(canonicalEmail("O'Brien@example.com"), "o'brien@example.com");
+    await assert.rejects(fs.readFile(path.join(dataDir, 'subscribers.jsonl')), { code: 'ENOENT' });
+    let calls = 0;
+    const { elements, submit } = await client(() => { calls++; return { ok: true, json: async () => ({ subscribed: true }) }; });
+    elements['email-input'].value = 'reader\u034F@example.com';
+    let focused = false;
+    elements['email-input'].focus = () => { focused = true; };
+    await submit();
+    assert.equal(calls, 0);
+    assert.equal(focused, true);
+    assert.match(elements['signup-error'].textContent, /valid email/);
+    assert.equal(elements['email-input'].attributes['aria-invalid'], 'true');
+    assert.equal(elements['success-msg'].classes.has('show'), false);
+});
+
 test('request limit counts original bytes across chunks with exact boundary acceptance', async t => {
     const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));
     const app = await start(dataDir);

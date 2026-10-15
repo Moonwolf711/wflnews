@@ -14,8 +14,9 @@ function canonicalEmail(value) {
     if (email.length === 0 || email.length > 254) return '';
     // Dots must separate non-empty labels. A trailing or doubled dot cannot be delivered.
     if (!deliverable.test(email)) return '';
-    // Format, control, and bidi characters would store one address that looks like another.
-    if (/\p{Cc}|\p{Cf}/u.test(email)) return '';
+    // Controls, format characters (including bidi), and other default-ignorable marks
+    // would store one address that looks like another. Controls are not all default-ignorable.
+    if (/\p{Cc}|\p{Cf}|\p{Default_Ignorable_Code_Point}/u.test(email)) return '';
     return email;
 }
 
