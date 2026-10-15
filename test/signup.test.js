@@ -413,6 +413,56 @@ test('default-ignorable marks cannot masquerade as another signup address', asyn
     assert.equal(elements['success-msg'].classes.has('show'), false);
 });
 
+test('signup errors below the fold are brought into view without moving failure focus', async () => {
+    const css = await fs.readFile(path.join(__dirname, '../styles.css'), 'utf8');
+    assert.match(css, /#signup-error:not\(:empty\) \{[^}]*scroll-margin:\s*39px 0 16px;/);
+    function scrolledNearest(calls) {
+        assert.equal(calls.length, 1);
+        assert.equal(calls[0].block, 'nearest');
+        assert.equal(calls[0].inline, 'nearest');
+        assert.equal(calls[0].behavior, 'auto');
+    }
+
+    const failed = await client(async () => { throw new Error('offline'); });
+    const failedScrolls = [];
+    failed.elements['signup-error'].scrollIntoView = options => { failedScrolls.push(options); };
+    let releaseFonts;
+    failed.document.fonts = { ready: new Promise(resolve => { releaseFonts = resolve; }) };
+    failed.document.activeElement = failed.elements['submit-btn'];
+    await failed.submit();
+    assert.equal(failed.document.activeElement, failed.elements['submit-btn']);
+    assert.match(failed.elements['signup-error'].textContent, /try again/);
+    assert.equal(failed.elements['signup-form'].style.display, undefined);
+    scrolledNearest(failedScrolls);
+    // A late webfont reflow can push the same line back past the fold.
+    releaseFonts();
+    await failed.document.fonts.ready;
+    await Promise.resolve();
+    assert.equal(failedScrolls.length, 2);
+    assert.equal(failedScrolls[1].block, 'nearest');
+    assert.equal(failedScrolls[1].behavior, 'auto');
+
+    const invalid = await client(() => { throw new Error('should not send'); });
+    const invalidScrolls = [];
+    invalid.elements['signup-error'].scrollIntoView = options => { invalidScrolls.push(options); };
+    invalid.elements['email-input'].value = 'not-an-email';
+    let focused = false;
+    invalid.elements['email-input'].focus = () => { focused = true; invalid.document.activeElement = invalid.elements['email-input']; };
+    await invalid.submit();
+    assert.equal(invalid.document.activeElement, invalid.elements['email-input']);
+    assert.equal(focused, true);
+    assert.match(invalid.elements['signup-error'].textContent, /valid email/);
+    scrolledNearest(invalidScrolls);
+
+    const confirmed = await client(async () => ({ ok: true, json: async () => ({ subscribed: true }) }));
+    const confirmedScrolls = [];
+    confirmed.elements['signup-error'].scrollIntoView = options => { confirmedScrolls.push(options); };
+    await confirmed.submit();
+    assert.deepEqual(confirmedScrolls, []);
+    assert.equal(confirmed.document.activeElement, confirmed.elements['success-msg']);
+    assert.equal(confirmed.elements['success-msg'].classes.has('show'), true);
+});
+
 test('request limit counts original bytes across chunks with exact boundary acceptance', async t => {
     const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));
     const app = await start(dataDir);

@@ -13,11 +13,30 @@ function updateButton() {
 checkbox.addEventListener('change', updateButton);
 updateButton();
 
+function revealError() {
+    // The retry control can sit fully inside a short window while this line stays past the fold.
+    // Webfonts then reflow the hero and can push the same line back out.
+    if (typeof errorMsg.scrollIntoView !== 'function') return;
+    const options = { block: 'nearest', inline: 'nearest', behavior: 'auto' };
+    const scroll = () => {
+        if (errorMsg.textContent) errorMsg.scrollIntoView(options);
+    };
+    scroll();
+    const fonts = typeof document !== 'undefined' && document.fonts;
+    if (fonts && typeof fonts.ready?.then === 'function') {
+        fonts.ready.then(() => {
+            if (typeof requestAnimationFrame === 'function') requestAnimationFrame(scroll);
+            else scroll();
+        });
+    }
+}
+
 function showEmailError(message) {
     errorMsg.textContent = message || 'Enter a valid email address.';
     emailInput.setAttribute('aria-invalid', 'true');
     emailInput.setAttribute('aria-describedby', 'signup-error');
-    if (typeof emailInput.focus === 'function') emailInput.focus();
+    if (typeof emailInput.focus === 'function') emailInput.focus({ preventScroll: true });
+    revealError();
 }
 
 form.addEventListener('submit', async function (event) {
@@ -80,5 +99,6 @@ form.addEventListener('submit', async function (event) {
         if (!succeeded && returnFocus && typeof form.contains === 'function' && form.contains(returnFocus) && typeof returnFocus.focus === 'function') {
             returnFocus.focus({ preventScroll: true });
         }
+        if (!succeeded && errorMsg.textContent) revealError();
     }
 });

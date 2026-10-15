@@ -273,6 +273,8 @@ body {
     margin-top: 12px;
     text-align: center;
     text-wrap: balance;
+    /* Under the consent line, so a short window hides it while the button stays on screen. */
+    scroll-margin: 39px 0 16px;
 }
 
 .email-input {
