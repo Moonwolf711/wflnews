@@ -7,6 +7,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { Readable } = require('node:stream');
 const { createServer } = require('../server');
+const { canonicalEmail } = require('../email');
 
 const servers = new Map();
 let nextServer = 0;
@@ -58,7 +59,7 @@ test('signups persist, deduplicate concurrently and after restart, and stay priv
     for (const resource of ['/data/subscribers.jsonl', '/subscribers.jsonl', '/server.js', '/.git/config']) {
         assert.equal((await request(app.url + resource)).status, 404);
     }
-    for (const resource of ['/', '/wfl-landing.html', '/styles.css', '/signup.js', '/countdown.js']) {
+    for (const resource of ['/', '/wfl-landing.html', '/styles.css', '/signup.js', '/countdown.js', '/email.js']) {
         assert.equal((await request(app.url + resource)).status, 200);
     }
 });
@@ -67,7 +68,7 @@ test('invalid input and failed storage never report success', async t => {
     const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));
     const app = await start(dataDir);
     t.after(async () => { await app.close(); await fs.rm(dataDir, { recursive: true }); });
-    for (const body of [null, {}, { email: 'invalid', consent: true }, { email: 'a@example.com' }, { email: 'a@example.com', consent: 'true' }]) {
+    for (const body of [null, {}, { email: 'invalid', consent: true }, { email: 'user@com', consent: true }, { email: 'user@localhost', consent: true }, { email: 'reader@example.com\u200b', consent: true }, { email: 'a@example.com' }, { email: 'a@example.com', consent: 'true' }]) {
         assert.equal((await subscribe(app.url, body)).status, 400);
     }
     assert.equal((await subscribe(app.url, {}, { 'Content-Type': 'text/plain' })).status, 415);
@@ -94,7 +95,7 @@ async function client(fetchImpl) {
     }
     vm.runInNewContext(await fs.readFile(path.join(__dirname, '../signup.js'), 'utf8'), {
         document: { getElementById: id => elements[id] }, fetch: fetchImpl,
-        AbortController, setTimeout, clearTimeout
+        canonicalEmail, AbortController, setTimeout, clearTimeout
     });
     return { elements, submit: () => elements['signup-form'].handlers.submit({ preventDefault() {} }) };
 }
@@ -161,6 +162,53 @@ test('pending signup locks its email and consent, then a failed request permits 
     assert.equal(elements['success-msg'].classes.has('show'), true);
 });
 
+
+test('equivalent unicode addresses are stored once', async t => {
+    const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));
+    let app = await start(dataDir);
+    t.after(async () => { await app.close(); await fs.rm(dataDir, { recursive: true }); });
+    const nfc = 'reader@café.example';
+    const mixed = ` ${nfc.normalize('NFD').toUpperCase()} `;
+    assert.notEqual(mixed.trim(), nfc);
+    assert.equal(canonicalEmail(mixed), nfc);
+    assert.equal((await subscribe(app.url, { email: mixed, consent: true })).status, 200);
+    const file = path.join(dataDir, 'subscribers.jsonl');
+    assert.equal(JSON.parse(await fs.readFile(file, 'utf8')).email, nfc);
+    await app.close();
+    app = await start(dataDir);
+    assert.equal((await subscribe(app.url, { email: nfc, consent: true })).status, 200);
+    const records = (await fs.readFile(file, 'utf8')).trim().split('\n').map(JSON.parse);
+    assert.equal(records.length, 1);
+    assert.equal(records[0].email, nfc);
+});
+
+test('client sends international addresses and keeps dotless domains off the request', async () => {
+    const pages = await Promise.all(['index.html', 'wfl-landing.html'].map(file => fs.readFile(path.join(__dirname, '..', file), 'utf8')));
+    for (const html of pages) {
+        assert.match(html, /<input type="text" id="email-input"[^>]*inputmode="email"/);
+        assert.match(html, /<script src="email\.js" defer><\/script>\s*<script src="signup\.js" defer><\/script>/);
+        assert.doesNotMatch(html, /type="email"/);
+    }
+    const requests = [];
+    const { elements, submit } = await client((url, options) => {
+        requests.push(JSON.parse(options.body));
+        return { ok: true, json: async () => ({ subscribed: true }) };
+    });
+    let focused = false;
+    elements['email-input'].focus = () => { focused = true; };
+    elements['email-input'].value = 'user@com';
+    await submit();
+    assert.equal(requests.length, 0);
+    assert.equal(focused, true);
+    assert.match(elements['signup-error'].textContent, /valid email/);
+    assert.equal(elements['email-input'].attributes['aria-invalid'], 'true');
+    assert.equal(elements['signup-form'].style.display, undefined);
+    elements['email-input'].value = ' Reader@Café.example ';
+    await submit();
+    assert.deepEqual(requests, [{ email: 'reader@café.example', consent: true }]);
+    assert.equal(elements['email-input'].attributes['aria-invalid'], undefined);
+    assert.equal(elements['success-msg'].classes.has('show'), true);
+});
 
 test('chunk boundaries cannot corrupt UTF-8 subscriber addresses', async t => {
     const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));

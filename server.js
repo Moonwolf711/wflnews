@@ -3,6 +3,7 @@
 const http = require('node:http');
 const path = require('node:path');
 const fs = require('node:fs/promises');
+const { canonicalEmail } = require('./email');
 
 const assets = new Map([
     ['/', ['index.html', 'text/html; charset=utf-8']],
@@ -10,7 +11,8 @@ const assets = new Map([
     ['/wfl-landing.html', ['wfl-landing.html', 'text/html; charset=utf-8']],
     ['/styles.css', ['styles.css', 'text/css; charset=utf-8']],
     ['/countdown.js', ['countdown.js', 'text/javascript; charset=utf-8']],
-    ['/signup.js', ['signup.js', 'text/javascript; charset=utf-8']]
+    ['/signup.js', ['signup.js', 'text/javascript; charset=utf-8']],
+    ['/email.js', ['email.js', 'text/javascript; charset=utf-8']]
 ]);
 
 async function createServer({ dataDir = process.env.DATA_DIR || path.join(__dirname, 'data') } = {}) {
@@ -19,7 +21,8 @@ async function createServer({ dataDir = process.env.DATA_DIR || path.join(__dirn
     const emails = new Set();
     try {
         for (const line of (await fs.readFile(file, 'utf8')).split('\n').filter(Boolean)) {
-            emails.add(JSON.parse(line).email);
+            const saved = canonicalEmail(JSON.parse(line).email);
+            if (saved) emails.add(saved);
         }
     } catch (error) {
         if (error.code !== 'ENOENT') throw error;
@@ -54,8 +57,8 @@ async function createServer({ dataDir = process.env.DATA_DIR || path.join(__dirn
                     const body = new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks, bodyBytes));
                     input = JSON.parse(body);
                 } catch { return reply(res, 400, { error: 'Invalid UTF-8 JSON.' }); }
-                const email = typeof input?.email === 'string' ? input.email.trim().toLowerCase() : '';
-                if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || input?.consent !== true) {
+                const email = canonicalEmail(input?.email);
+                if (!email || input?.consent !== true) {
                     return reply(res, 400, { error: 'Enter a valid email and agree to receive the Lowdown.' });
                 }
                 // Serialize writes so simultaneous retries cannot create duplicate records.

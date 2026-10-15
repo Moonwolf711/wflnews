@@ -16,7 +16,17 @@ updateButton();
 form.addEventListener('submit', async function (event) {
     event.preventDefault();
     if (submitting || !form.reportValidity() || !checkbox.checked) return;
-    const payload = { email: emailInput.value.trim(), consent: checkbox.checked };
+    const email = canonicalEmail(emailInput.value);
+    if (!email) {
+        errorMsg.textContent = 'Enter a valid email address.';
+        emailInput.setAttribute('aria-invalid', 'true');
+        emailInput.setAttribute('aria-describedby', 'signup-error');
+        if (typeof emailInput.focus === 'function') emailInput.focus();
+        return;
+    }
+    emailInput.removeAttribute('aria-invalid');
+    emailInput.removeAttribute('aria-describedby');
+    const payload = { email, consent: checkbox.checked };
     const previousEmailDisabled = emailInput.disabled;
     const previousConsentDisabled = checkbox.disabled;
     submitting = true;

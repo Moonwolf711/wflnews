@@ -85,7 +85,7 @@
             <form id="signup-form" action="/api/subscribe" method="post">
                 <div class="input-group">
                     <label for="email-input" class="visually-hidden">Email address</label>
-                    <input type="email" id="email-input" name="email" class="email-input" placeholder="your@email.com" autocomplete="email" maxlength="254" required>
+                    <input type="text" id="email-input" name="email" class="email-input" placeholder="your@email.com" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" maxlength="254" required>
                     <button type="submit" class="submit-btn" id="submit-btn" disabled>Get The Lowdown</button>
                 </div>
                 <div class="legal-check">
@@ -145,6 +145,7 @@
     </div>
     
     <script src="countdown.js" defer></script>
+    <script src="email.js" defer></script>
     <script src="signup.js" defer></script>
 </body>
 </html>
