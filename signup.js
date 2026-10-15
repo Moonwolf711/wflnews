@@ -10,8 +10,29 @@ let submitting = false;
 function updateButton() {
     submitBtn.disabled = submitting || !checkbox.checked;
 }
-checkbox.addEventListener('change', updateButton);
+checkbox.addEventListener('change', function () {
+    updateButton();
+    if (checkbox.checked) checkbox.removeAttribute('aria-invalid');
+});
 updateButton();
+
+// Enter in the email field looks for a submit button. That button stays
+// disabled until consent, so the key does nothing and the visitor is not
+// told to check the box.
+emailInput.addEventListener('keydown', function (event) {
+    if (event.key !== 'Enter' || submitting || checkbox.checked) return;
+    event.preventDefault();
+    if (emailInput.validity && !emailInput.validity.valid) {
+        if (typeof form.reportValidity === 'function') form.reportValidity();
+        showEmailError(emailInput.validationMessage);
+        return;
+    }
+    errorMsg.textContent = 'Check the box to agree to receive the Weekly Festival Lowdown by email.';
+    checkbox.setAttribute('aria-invalid', 'true');
+    checkbox.setAttribute('aria-describedby', 'signup-error');
+    if (typeof checkbox.focus === 'function') checkbox.focus({ preventScroll: true });
+    revealError();
+});
 
 function revealError() {
     // The retry control can sit fully inside a short window while this line stays past the fold.

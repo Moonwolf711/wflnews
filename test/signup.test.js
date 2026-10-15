@@ -280,6 +280,31 @@ test('consent precedes the submit button in tab order on both landing pages', as
     assert.match(css, /\.signup-fields \.legal-check\s*\{[^}]*grid-row:\s*2/);
 });
 
+test('Enter without consent asks for the agreement and does not post', async () => {
+    let calls = 0;
+    const { elements, document } = await client(() => { calls++; });
+    elements['agree-check'].checked = false;
+    elements['agree-check'].handlers.change();
+    assert.equal(elements['submit-btn'].disabled, true);
+    let prevented = false;
+    const enter = () => elements['email-input'].handlers.keydown({ key: 'Enter', preventDefault() { prevented = true; } });
+    enter();
+    assert.equal(prevented, true);
+    assert.equal(calls, 0);
+    assert.equal(elements['signup-error'].textContent, 'Check the box to agree to receive the Weekly Festival Lowdown by email.');
+    assert.equal(document.activeElement, elements['agree-check']);
+    elements['email-input'].validity = { valid: false };
+    elements['email-input'].validationMessage = 'Please fill out this field.';
+    enter();
+    assert.equal(calls, 0);
+    assert.equal(elements['signup-error'].textContent, 'Please fill out this field.');
+    assert.equal(document.activeElement, elements['email-input']);
+    elements['agree-check'].checked = true;
+    elements['agree-check'].handlers.change();
+    assert.equal(elements['submit-btn'].disabled, false);
+    assert.equal(elements['agree-check'].attributes['aria-invalid'], undefined);
+});
+
 test('signup keeps keyboard focus on failure and moves it to the confirmation', async () => {
     const pages = await Promise.all(['index.html', 'wfl-landing.html'].map(file => fs.readFile(path.join(__dirname, '..', file), 'utf8')));
     for (const html of pages) assert.match(html, /id="success-msg"[^>]*tabindex="-1"/);
