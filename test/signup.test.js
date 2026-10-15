@@ -347,6 +347,41 @@ test('empty dot labels are rejected before a signup is stored or sent', async t 
     assert.equal(elements['success-msg'].classes.has('show'), true);
 });
 
+test('pasted mailbox punctuation is rejected before a signup is stored or sent', async t => {
+    const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));
+    const app = await start(dataDir);
+    t.after(async () => { await app.close(); await fs.rm(dataDir, { recursive: true }); });
+    for (const email of ['mailto:reader@example.com', '<reader@example.com>', 'reader@example.com,', 'reader@example.com>', '"reader@example.com"', 'reader@example.com;', 'user@-example.com', 'user@example-.com', 'user@example.com/path']) {
+        assert.equal(canonicalEmail(email), '');
+        assert.equal((await subscribe(app.url, { email, consent: true })).status, 400);
+    }
+    assert.equal(canonicalEmail('user+tag@example.com'), 'user+tag@example.com');
+    assert.equal(canonicalEmail('first.last@example.com'), 'first.last@example.com');
+    assert.equal(canonicalEmail('user@münchen.de'), 'user@münchen.de');
+    await assert.rejects(fs.readFile(path.join(dataDir, 'subscribers.jsonl')), { code: 'ENOENT' });
+    let calls = 0;
+    const seen = [];
+    const { elements, submit } = await client((url, options) => {
+        calls++;
+        seen.push(JSON.parse(options.body));
+        return { ok: true, json: async () => ({ subscribed: true }) };
+    });
+    elements['email-input'].value = 'mailto:reader@example.com';
+    let focused = false;
+    elements['email-input'].focus = () => { focused = true; };
+    await submit();
+    assert.equal(calls, 0);
+    assert.equal(focused, true);
+    assert.match(elements['signup-error'].textContent, /valid email/);
+    assert.equal(elements['email-input'].attributes['aria-invalid'], 'true');
+    assert.equal(elements['success-msg'].classes.has('show'), false);
+    elements['email-input'].value = 'user+tag@example.com';
+    await submit();
+    assert.equal(calls, 1);
+    assert.deepEqual(seen, [{ email: 'user+tag@example.com', consent: true }]);
+    assert.equal(elements['success-msg'].classes.has('show'), true);
+});
+
 test('request limit counts original bytes across chunks with exact boundary acceptance', async t => {
     const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));
     const app = await start(dataDir);
