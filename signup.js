@@ -17,8 +17,7 @@ checkbox.addEventListener('change', function () {
 updateButton();
 
 // Enter in the email field looks for a submit button. That button stays
-// disabled until consent, so the key does nothing and the visitor is not
-// told to check the box.
+// disabled until consent, so an unchecked box never hears the key.
 emailInput.addEventListener('keydown', function (event) {
     if (event.key !== 'Enter' || submitting || checkbox.checked) return;
     // IME uses Enter to confirm the character being composed. That is not a submit.
@@ -29,7 +28,14 @@ emailInput.addEventListener('keydown', function (event) {
         showEmailError(emailInput.validationMessage);
         return;
     }
+    // type=text is valid for any non-empty value. Ask for the mailbox before consent.
+    if (!canonicalEmail(emailInput.value)) {
+        showEmailError();
+        return;
+    }
     errorMsg.textContent = 'Check the box to agree to receive the Weekly Festival Lowdown by email.';
+    emailInput.removeAttribute('aria-invalid');
+    emailInput.removeAttribute('aria-describedby');
     checkbox.setAttribute('aria-invalid', 'true');
     checkbox.setAttribute('aria-describedby', 'signup-error');
     if (typeof checkbox.focus === 'function') checkbox.focus({ preventScroll: true });
@@ -58,6 +64,9 @@ function showEmailError(message) {
     errorMsg.textContent = message || 'Enter a valid email address.';
     emailInput.setAttribute('aria-invalid', 'true');
     emailInput.setAttribute('aria-describedby', 'signup-error');
+    // The text now describes the address, so the agreement is no longer the error.
+    checkbox.removeAttribute('aria-invalid');
+    checkbox.removeAttribute('aria-describedby');
     if (typeof emailInput.focus === 'function') emailInput.focus({ preventScroll: true });
     revealError();
 }

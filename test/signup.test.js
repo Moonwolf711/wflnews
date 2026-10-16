@@ -305,6 +305,57 @@ test('Enter without consent asks for the agreement and does not post', async () 
     assert.equal(elements['agree-check'].attributes['aria-invalid'], undefined);
 });
 
+test('Enter on an undeliverable address asks for a valid email and does not post', async () => {
+    let calls = 0;
+    const { elements, document } = await client(() => { calls++; });
+    elements['agree-check'].checked = false;
+    elements['agree-check'].handlers.change();
+    elements['email-input'].validity = { valid: true };
+    elements['email-input'].validationMessage = '';
+    let prevented = false;
+    const enter = () => elements['email-input'].handlers.keydown({
+        key: 'Enter', isComposing: false, keyCode: 13, preventDefault() { prevented = true; }
+    });
+    for (const value of ['not-an-email', 'user@com', '   ', 'mailto:reader@example.com', 'reader@example.com.']) {
+        elements['email-input'].value = value;
+        prevented = false;
+        enter();
+        assert.equal(prevented, true);
+        assert.equal(calls, 0);
+        assert.match(elements['signup-error'].textContent, /valid email/);
+        assert.equal(document.activeElement, elements['email-input']);
+        assert.equal(elements['email-input'].attributes['aria-invalid'], 'true');
+        assert.equal(elements['email-input'].attributes['aria-describedby'], 'signup-error');
+        assert.equal(elements['agree-check'].attributes['aria-invalid'], undefined);
+        assert.equal(elements['agree-check'].attributes['aria-describedby'], undefined);
+        assert.equal(elements['submit-btn'].disabled, true);
+        assert.equal(elements['signup-form'].style.display, undefined);
+    }
+    // A previous empty submit can leave the field marked invalid after the visitor fixes it.
+    elements['email-input'].setAttribute('aria-invalid', 'true');
+    elements['email-input'].setAttribute('aria-describedby', 'signup-error');
+    for (const value of [' reader@example.com ', 'reader@café.example', 'ｶﾞ.ｱ@ｱ.jp', '\uFF35\uFF53\uFF45\uFF52\uFF20\uFF25\uFF58\uFF41\uFF4D\uFF50\uFF4C\uFF45\uFF0E\uFF43\uFF4F\uFF4D']) {
+        elements['email-input'].value = value;
+        prevented = false;
+        enter();
+        assert.equal(prevented, true);
+        assert.equal(calls, 0);
+        assert.equal(elements['signup-error'].textContent, 'Check the box to agree to receive the Weekly Festival Lowdown by email.');
+        assert.equal(document.activeElement, elements['agree-check']);
+        assert.equal(elements['email-input'].attributes['aria-invalid'], undefined);
+        assert.equal(elements['email-input'].attributes['aria-describedby'], undefined);
+        assert.equal(elements['agree-check'].attributes['aria-invalid'], 'true');
+        assert.equal(elements['submit-btn'].disabled, true);
+    }
+    elements['email-input'].value = 'not-an-email';
+    enter();
+    assert.equal(calls, 0);
+    assert.match(elements['signup-error'].textContent, /valid email/);
+    assert.equal(document.activeElement, elements['email-input']);
+    assert.equal(elements['agree-check'].attributes['aria-invalid'], undefined);
+    assert.equal(elements['agree-check'].attributes['aria-describedby'], undefined);
+});
+
 test('Enter during IME composition finishes the address and does not ask for consent', async () => {
     let calls = 0;
     const { elements, document } = await client(() => { calls++; });
@@ -316,12 +367,14 @@ test('Enter during IME composition finishes the address and does not ask for con
     const compose = extra => elements['email-input'].handlers.keydown({
         key: 'Enter', isComposing: false, keyCode: 13, preventDefault() { prevented = true; }, ...extra
     });
+    elements['email-input'].value = 'not-an-email';
     compose({ isComposing: true, keyCode: 229 });
     assert.equal(prevented, false);
     assert.equal(calls, 0);
     assert.equal(elements['signup-error'].textContent, '');
     assert.equal(document.activeElement, elements['email-input']);
     assert.equal(elements['submit-btn'].disabled, true);
+    elements['email-input'].value = 'reader@example.com';
     // Chrome reports the confirming Enter as keyCode 229 even when isComposing is already false.
     compose({ isComposing: false, keyCode: 229 });
     assert.equal(prevented, false);
