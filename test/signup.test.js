@@ -554,6 +554,68 @@ test('fullwidth and ideographic lookalikes are stored as the mailbox they show',
     assert.equal(rejected.elements['success-msg'].classes.has('show'), false);
 });
 
+test('halfwidth katakana is stored as the fullwidth mailbox it shows', async t => {
+    const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));
+    let app = await start(dataDir);
+    t.after(async () => { await app.close(); await fs.rm(dataDir, { recursive: true }); });
+    const shown = 'ガ.ア@ア.jp';
+    const lookalikes = [
+        ['ｶﾞ.ｱ@ｱ.jp', shown],
+        ['ガ.ア@ア.jp', shown],
+        ['  ｶﾞ.ｱ@ｱ.jp  ', shown],
+        ['ﾊﾟ@example.com', 'パ@example.com'],
+        ['パ@example.com', 'パ@example.com'],
+        ['user@ｰ.jp', 'user@ー.jp'],
+        ['user@ー.jp', 'user@ー.jp']
+    ];
+    for (const [email, folded] of lookalikes) {
+        assert.equal(canonicalEmail(email), folded);
+        assert.equal(canonicalEmail(folded), folded);
+    }
+    // A halfwidth middle dot is not kana and is not a dot in the mailbox.
+    assert.equal(canonicalEmail('user@example\uFF65com'), '');
+    assert.equal(canonicalEmail('reader@café.example'), 'reader@café.example');
+    assert.equal(canonicalEmail('user@münchen.de'), 'user@münchen.de');
+    assert.equal(canonicalEmail('user+tag@example.com'), 'user+tag@example.com');
+    assert.equal(canonicalEmail("O'Brien@example.com"), "o'brien@example.com");
+    assert.equal(canonicalEmail('O\u2019Brien@example.com'), 'o\u2019brien@example.com');
+    const responses = await Promise.all([
+        subscribe(app.url, { email: 'ｶﾞ.ｱ@ｱ.jp', consent: true }),
+        subscribe(app.url, { email: 'ガ.ア@ア.jp', consent: true }),
+        subscribe(app.url, { email: 'ﾊﾟ@example.com', consent: true })
+    ]);
+    for (const response of responses) assert.equal(response.status, 200);
+    assert.equal((await subscribe(app.url, { email: 'user@example\uFF65com', consent: true })).status, 400);
+    const file = path.join(dataDir, 'subscribers.jsonl');
+    let records = (await fs.readFile(file, 'utf8')).trim().split('\n').map(JSON.parse);
+    assert.deepEqual(records.map(record => record.email).sort(), [shown, 'パ@example.com'].sort());
+    await app.close();
+    await fs.appendFile(file, JSON.stringify({ email: 'ｶﾞ.ｱ@ｱ.jp', consent: true, subscribedAt: '2026-10-16T00:00:00.000Z' }) + '\n');
+    app = await start(dataDir);
+    assert.equal((await subscribe(app.url, { email: 'ガ.ア@ア.jp', consent: true })).status, 200);
+    records = (await fs.readFile(file, 'utf8')).trim().split('\n').map(JSON.parse);
+    assert.equal(records.length, 3);
+    assert.deepEqual(records.map(record => record.email).sort(), ['パ@example.com', shown, 'ｶﾞ.ｱ@ｱ.jp'].sort());
+    const seen = [];
+    const { elements, submit } = await client((url, options) => {
+        seen.push(JSON.parse(options.body));
+        return { ok: true, json: async () => ({ subscribed: true }) };
+    });
+    elements['email-input'].value = 'ｶﾞ.ｱ@ｱ.jp';
+    await submit();
+    assert.deepEqual(seen, [{ email: shown, consent: true }]);
+    assert.equal(elements['success-msg'].classes.has('show'), true);
+    assert.equal(elements['email-input'].attributes['aria-invalid'], undefined);
+    const rejected = await client(() => { throw new Error('should not send'); });
+    let focused = false;
+    rejected.elements['email-input'].focus = () => { focused = true; };
+    rejected.elements['email-input'].value = 'user@example\uFF65com';
+    await rejected.submit();
+    assert.equal(focused, true);
+    assert.match(rejected.elements['signup-error'].textContent, /valid email/);
+    assert.equal(rejected.elements['success-msg'].classes.has('show'), false);
+});
+
 test('request limit counts original bytes across chunks with exact boundary acceptance', async t => {
     const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));
     const app = await start(dataDir);

@@ -6,16 +6,20 @@
 // comma, or hyphen at a label edge cannot be delivered.
 // Fullwidth ASCII and ideographic stops look like the typed mailbox. Leaving
 // them in place stores a second address, or rejects one the visitor can read.
+// Halfwidth katakana (U+FF66–U+FF9F) is the same mailbox as the fullwidth kana
+// it shows. The middle dot U+FF65 is not one of those letters.
 const atom = "[\\p{L}\\p{M}\\p{N}!#$%&'*+\\-/=?^_`{|}~\\u2018\\u2019]";
 const label = "[\\p{L}\\p{N}](?:[\\p{L}\\p{M}\\p{N}-]*[\\p{L}\\p{M}\\p{N}])?";
 const deliverable = new RegExp(`^${atom}+(?:\\.${atom}+)*@${label}(?:\\.${label})+$`, 'u');
 
 function foldCompatibility(value) {
     // URL hosts treat U+3002 and U+FF61 as dots. U+FF01–U+FF5E are fullwidth ASCII.
-    return value.replace(/[\u3002\uFF61]|[\uFF01-\uFF5E]/gu, (ch) => {
+    // U+FF66–U+FF9F unfold to fullwidth kana; NFC then composes voiced marks.
+    return value.replace(/[\u3002\uFF61\uFF66-\uFF9F]|[\uFF01-\uFF5E]/gu, (ch) => {
         const code = ch.codePointAt(0);
         if (code === 0x3002 || code === 0xFF61) return '.';
-        return String.fromCharCode(code - 0xFEE0);
+        if (code <= 0xFF5E) return String.fromCharCode(code - 0xFEE0);
+        return ch.normalize('NFKC');
     });
 }
 
