@@ -1044,6 +1044,74 @@ test('thai and lao sara am are stored as the letter they show', async t => {
     assert.equal(rejected.elements['success-msg'].classes.has('show'), false);
 });
 
+test('kanbun marks are stored as the ideographs they show', async t => {
+    const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));
+    let app = await start(dataDir);
+    t.after(async () => { await app.close(); await fs.rm(dataDir, { recursive: true }); });
+    for (let code = 0x3192; code <= 0x319F; code++) {
+        const mark = String.fromCodePoint(code);
+        const shown = mark.normalize('NFKC');
+        assert.equal([...shown].length, 1);
+        assert.notEqual(shown, mark);
+        assert.equal(canonicalEmail(mark + '@example.com'), shown + '@example.com');
+        assert.equal(canonicalEmail(shown + '@example.com'), shown + '@example.com');
+        assert.equal(canonicalEmail('user@' + mark + '.example'), 'user@' + shown + '.example');
+    }
+    const shown = 'user@\u4EBA.example';
+    const mark = 'user@\u319F.example';
+    assert.equal(canonicalEmail('user@\u3192.example'), 'user@\u4E00.example');
+    assert.equal(canonicalEmail('  ' + mark + '  '), shown);
+    assert.equal(canonicalEmail('user@\u3190.example'), '');
+    assert.equal(canonicalEmail('user@\u3191.example'), '');
+    assert.equal(canonicalEmail('\u2F08.\u2F00@\u2F08.example'), '\u4EBA.\u4E00@\u4EBA.example');
+    assert.equal(canonicalEmail('\uFFA1\u2F00@example.com'), '\u3131\u4E00@example.com');
+    assert.notEqual(canonicalEmail('\uFFA1\uFFC2\uFFA4@example.com'), '\uFFA1\uFFC2\uFFA4@example.com'.normalize('NFKC').normalize('NFC'));
+    assert.equal(canonicalEmail('user\u2024name\uFE62tag@my\uFE63domain\uFE52example'), 'user.name+tag@my-domain.example');
+    assert.equal(canonicalEmail('user@\u0E4D\u0E32.\u0ECD\u0EB2'), 'user@\u0E33.\u0EB3');
+    assert.equal(canonicalEmail('user@example\u2024\u2024com'), '');
+    assert.equal(canonicalEmail('user@example\u2025com'), '');
+    assert.equal(canonicalEmail('user@example\u2026com'), '');
+    assert.equal(canonicalEmail('user@example\uFE12com'), '');
+    assert.equal(canonicalEmail('user@example\uFF65com'), '');
+    assert.equal(canonicalEmail('reader@café.example'), 'reader@café.example');
+    assert.equal(canonicalEmail('user@münchen.de'), 'user@münchen.de');
+    assert.equal(canonicalEmail('user+tag@example.com'), 'user+tag@example.com');
+    assert.equal(canonicalEmail("O'Brien@example.com"), "o'brien@example.com");
+    for (const email of [mark, shown, 'user@\u3192.example', 'user@\u4E00.example']) {
+        assert.equal((await subscribe(app.url, { email, consent: true })).status, 200);
+    }
+    assert.equal((await subscribe(app.url, { email: 'user@\u3190.example', consent: true })).status, 400);
+    const file = path.join(dataDir, 'subscribers.jsonl');
+    let records = (await fs.readFile(file, 'utf8')).trim().split('\n').map(JSON.parse);
+    assert.deepEqual(records.map(record => record.email).sort(), ['user@\u4E00.example', shown]);
+    await app.close();
+    await fs.appendFile(file, JSON.stringify({ email: mark, consent: true, subscribedAt: '2026-10-16T00:00:00.000Z' }) + '\n');
+    app = await start(dataDir);
+    assert.equal((await subscribe(app.url, { email: shown, consent: true })).status, 200);
+    records = (await fs.readFile(file, 'utf8')).trim().split('\n').map(JSON.parse);
+    assert.equal(records.length, 3);
+    assert.deepEqual(records.map(record => record.email).sort(), [mark, 'user@\u4E00.example', shown]);
+    const seen = [];
+    const { elements, submit } = await client((url, options) => {
+        seen.push(JSON.parse(options.body));
+        return { ok: true, json: async () => ({ subscribed: true }) };
+    });
+    elements['email-input'].value = mark;
+    await submit();
+    elements['email-input'].value = 'user@\u3192.example';
+    await submit();
+    assert.deepEqual(seen, [{ email: shown, consent: true }, { email: 'user@\u4E00.example', consent: true }]);
+    assert.equal(elements['success-msg'].classes.has('show'), true);
+    const rejected = await client(() => { throw new Error('should not send'); });
+    let focused = false;
+    rejected.elements['email-input'].focus = () => { focused = true; };
+    rejected.elements['email-input'].value = 'user@example\uFF65com';
+    await rejected.submit();
+    assert.equal(focused, true);
+    assert.match(rejected.elements['signup-error'].textContent, /valid email/);
+    assert.equal(rejected.elements['success-msg'].classes.has('show'), false);
+});
+
 test('request limit counts original bytes across chunks with exact boundary acceptance', async t => {
     const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));
     const app = await start(dataDir);
