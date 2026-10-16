@@ -21,6 +21,8 @@ updateButton();
 // told to check the box.
 emailInput.addEventListener('keydown', function (event) {
     if (event.key !== 'Enter' || submitting || checkbox.checked) return;
+    // IME uses Enter to confirm the character being composed. That is not a submit.
+    if (event.isComposing || event.keyCode === 229) return;
     event.preventDefault();
     if (emailInput.validity && !emailInput.validity.valid) {
         if (typeof form.reportValidity === 'function') form.reportValidity();

@@ -305,6 +305,43 @@ test('Enter without consent asks for the agreement and does not post', async () 
     assert.equal(elements['agree-check'].attributes['aria-invalid'], undefined);
 });
 
+test('Enter during IME composition finishes the address and does not ask for consent', async () => {
+    let calls = 0;
+    const { elements, document } = await client(() => { calls++; });
+    elements['agree-check'].checked = false;
+    elements['agree-check'].handlers.change();
+    elements['signup-error'].textContent = '';
+    document.activeElement = elements['email-input'];
+    let prevented = false;
+    const compose = extra => elements['email-input'].handlers.keydown({
+        key: 'Enter', isComposing: false, keyCode: 13, preventDefault() { prevented = true; }, ...extra
+    });
+    compose({ isComposing: true, keyCode: 229 });
+    assert.equal(prevented, false);
+    assert.equal(calls, 0);
+    assert.equal(elements['signup-error'].textContent, '');
+    assert.equal(document.activeElement, elements['email-input']);
+    assert.equal(elements['submit-btn'].disabled, true);
+    // Chrome reports the confirming Enter as keyCode 229 even when isComposing is already false.
+    compose({ isComposing: false, keyCode: 229 });
+    assert.equal(prevented, false);
+    assert.equal(calls, 0);
+    assert.equal(elements['signup-error'].textContent, '');
+    assert.equal(document.activeElement, elements['email-input']);
+    compose({ isComposing: false, keyCode: 13 });
+    assert.equal(prevented, true);
+    assert.equal(calls, 0);
+    assert.equal(elements['signup-error'].textContent, 'Check the box to agree to receive the Weekly Festival Lowdown by email.');
+    assert.equal(document.activeElement, elements['agree-check']);
+    elements['agree-check'].checked = true;
+    elements['agree-check'].handlers.change();
+    prevented = false;
+    compose({ isComposing: true, keyCode: 229 });
+    assert.equal(prevented, false);
+    assert.equal(calls, 0);
+    assert.equal(elements['submit-btn'].disabled, false);
+});
+
 test('signup keeps keyboard focus on failure and moves it to the confirmation', async () => {
     const pages = await Promise.all(['index.html', 'wfl-landing.html'].map(file => fs.readFile(path.join(__dirname, '..', file), 'utf8')));
     for (const html of pages) assert.match(html, /id="success-msg"[^>]*tabindex="-1"/);
