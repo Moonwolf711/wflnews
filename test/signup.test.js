@@ -505,6 +505,55 @@ test('signup errors below the fold are brought into view without moving failure 
     assert.equal(confirmed.elements['success-msg'].classes.has('show'), true);
 });
 
+test('fullwidth and ideographic lookalikes are stored as the mailbox they show', async t => {
+    const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));
+    const app = await start(dataDir);
+    t.after(async () => { await app.close(); await fs.rm(dataDir, { recursive: true }); });
+    const shown = 'user@example.com';
+    const lookalikes = [
+        ['user@example.com', shown],
+        ['user@example\u3002com', shown],
+        ['user@example\uFF0Ecom', shown],
+        ['user@example\uFF61com', shown],
+        ['user\uFF20example.com', shown],
+        ['\uFF55\uFF53\uFF45\uFF52@example.com', shown],
+        ['user@\uFF45\uFF58\uFF41\uFF4D\uFF50\uFF4C\uFF45.com', shown],
+        ['user@example.\uFF43\uFF4F\uFF4D', shown],
+        ['  \uFF35\uFF53\uFF45\uFF52\uFF20\uFF25\uFF58\uFF41\uFF4D\uFF50\uFF4C\uFF45\uFF0E\uFF43\uFF4F\uFF4D  ', shown],
+        ['O\uFF07Brien@example.com', "o'brien@example.com"]
+    ];
+    for (const [email, folded] of lookalikes) {
+        assert.equal(canonicalEmail(email), folded);
+        assert.equal(canonicalEmail(folded), folded);
+        assert.equal((await subscribe(app.url, { email, consent: true })).status, 200);
+    }
+    const file = path.join(dataDir, 'subscribers.jsonl');
+    const records = (await fs.readFile(file, 'utf8')).trim().split('\n').map(JSON.parse);
+    assert.deepEqual(records.map(record => record.email).sort(), ["o'brien@example.com", shown]);
+    assert.equal((await subscribe(app.url, { email: 'user\uFF20not-a-domain', consent: true })).status, 400);
+    assert.equal((await subscribe(app.url, { email: 'mailto\uFF1Areader@example.com', consent: true })).status, 400);
+    const seen = [];
+    const { elements, submit } = await client((url, options) => {
+        seen.push(JSON.parse(options.body));
+        return { ok: true, json: async () => ({ subscribed: true }) };
+    });
+    elements['email-input'].value = '\uFF35\uFF53\uFF45\uFF52\uFF20\uFF25\uFF58\uFF41\uFF4D\uFF50\uFF4C\uFF45\uFF0E\uFF43\uFF4F\uFF4D';
+    await submit();
+    elements['email-input'].value = 'user@example\u3002com';
+    await submit();
+    assert.deepEqual(seen, [{ email: shown, consent: true }, { email: shown, consent: true }]);
+    assert.equal(elements['success-msg'].classes.has('show'), true);
+    assert.equal(elements['email-input'].attributes['aria-invalid'], undefined);
+    const rejected = await client(() => { throw new Error('should not send'); });
+    let focused = false;
+    rejected.elements['email-input'].focus = () => { focused = true; };
+    rejected.elements['email-input'].value = 'user\uFF20com';
+    await rejected.submit();
+    assert.equal(focused, true);
+    assert.match(rejected.elements['signup-error'].textContent, /valid email/);
+    assert.equal(rejected.elements['success-msg'].classes.has('show'), false);
+});
+
 test('request limit counts original bytes across chunks with exact boundary acceptance', async t => {
     const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));
     const app = await start(dataDir);
