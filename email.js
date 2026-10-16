@@ -11,6 +11,9 @@
 // Halfwidth hangul (U+FFA1–U+FFDC) is the same mailbox as the compatibility
 // jamo it shows. Full NFKC keeps going to a conjoining jamo and can glue a
 // syllable those letters do not show.
+// Kangxi radicals (U+2F00–U+2FD5) and CJK radical supplements U+2E9F and
+// U+2EF3 are drawn as the unified ideograph. The symbol is not a letter, so
+// the address the visitor can read is rejected.
 const atom = "[\\p{L}\\p{M}\\p{N}!#$%&'*+\\-/=?^_`{|}~\\u2018\\u2019]";
 const label = "[\\p{L}\\p{N}](?:[\\p{L}\\p{M}\\p{N}-]*[\\p{L}\\p{M}\\p{N}])?";
 const deliverable = new RegExp(`^${atom}+(?:\\.${atom}+)*@${label}(?:\\.${label})+$`, 'u');
@@ -34,13 +37,16 @@ function foldCompatibility(value) {
     // URL hosts treat U+3002 and U+FF61 as dots. U+FF01–U+FF5E are fullwidth ASCII.
     // U+FF66–U+FF9F unfold to fullwidth kana; NFC then composes voiced marks.
     // U+FFA0–U+FFDC unfold to the compatibility jamo those glyphs show.
-    return value.replace(/[\u3002\uFF61\uFF66-\uFF9F\uFFA0-\uFFDC]|[\uFF01-\uFF5E]/gu, (ch) => {
+    // Radicals unfold one character at a time. NFKC of the whole address would
+    // also turn halfwidth hangul into conjoining jamo.
+    const folded = value.replace(/[\u3002\uFF61\uFF66-\uFF9F\uFFA0-\uFFDC]|[\uFF01-\uFF5E]/gu, (ch) => {
         const code = ch.codePointAt(0);
         if (code === 0x3002 || code === 0xFF61) return '.';
         if (code <= 0xFF5E) return String.fromCharCode(code - 0xFEE0);
         if (code <= 0xFF9F) return ch.normalize('NFKC');
         return shownHalfwidthHangul(code) || ch;
     });
+    return folded.replace(/[\u2E80-\u2EF3\u2F00-\u2FD5]/gu, (ch) => ch.normalize('NFKC'));
 }
 
 function canonicalEmail(value) {

@@ -839,6 +839,75 @@ test('halfwidth hangul is stored as the hangul letter it shows', async t => {
     assert.equal(rejected.elements['success-msg'].classes.has('show'), false);
 });
 
+test('cjk radicals are stored as the ideographs they show', async t => {
+    const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));
+    let app = await start(dataDir);
+    t.after(async () => { await app.close(); await fs.rm(dataDir, { recursive: true }); });
+    const pairs = [];
+    for (let code = 0x2E80; code <= 0x2FD5; code++) {
+        const radical = String.fromCodePoint(code);
+        const shown = radical.normalize('NFKC');
+        if (shown === radical) continue;
+        pairs.push([radical, shown]);
+        assert.equal([...shown].length, 1);
+        assert.equal(canonicalEmail(radical + '@example.com'), shown + '@example.com');
+        assert.equal(canonicalEmail(shown + '@example.com'), shown + '@example.com');
+        assert.notEqual(shown, radical);
+    }
+    assert.equal(pairs.length, 216);
+    assert.equal(canonicalEmail('\u2F00@example.com'), '\u4E00@example.com');
+    assert.equal(canonicalEmail('\u2F08@example.com'), '\u4EBA@example.com');
+    assert.equal(canonicalEmail('\u2E9F@example.com'), '\u6BCD@example.com');
+    assert.equal(canonicalEmail('\u2EF3@example.com'), '\u9F9F@example.com');
+    assert.equal(canonicalEmail('  \u2F08.\u2F00@\u2F08.example  '), '\u4EBA.\u4E00@\u4EBA.example');
+    // A radical beside halfwidth hangul must not pull that letter into a syllable.
+    assert.equal(canonicalEmail('\uFFA1\u2F00@example.com'), '\u3131\u4E00@example.com');
+    assert.notEqual(canonicalEmail('\uFFA1\uFFC2\uFFA4@example.com'), '\uFFA1\uFFC2\uFFA4@example.com'.normalize('NFKC').normalize('NFC'));
+    assert.equal(canonicalEmail('user@example\uFF65com'), '');
+    assert.equal(canonicalEmail('reader@café.example'), 'reader@café.example');
+    assert.equal(canonicalEmail('user@münchen.de'), 'user@münchen.de');
+    assert.equal(canonicalEmail('user+tag@example.com'), 'user+tag@example.com');
+    assert.equal(canonicalEmail("O'Brien@example.com"), "o'brien@example.com");
+    const shown = '\u4EBA.\u4E00@\u4EBA.example';
+    const radical = '\u2F08.\u2F00@\u2F08.example';
+    const responses = await Promise.all([
+        subscribe(app.url, { email: radical, consent: true }),
+        subscribe(app.url, { email: shown, consent: true })
+    ]);
+    for (const response of responses) assert.equal(response.status, 200);
+    // The radical folds to a letter, and a dotless domain is still undeliverable.
+    assert.equal(canonicalEmail('user@\u2F00'), '');
+    assert.equal((await subscribe(app.url, { email: 'user@\u2F00', consent: true })).status, 400);
+    const file = path.join(dataDir, 'subscribers.jsonl');
+    let records = (await fs.readFile(file, 'utf8')).trim().split('\n').map(JSON.parse);
+    assert.deepEqual(records.map(record => record.email), [shown]);
+    await app.close();
+    await fs.appendFile(file, JSON.stringify({ email: radical, consent: true, subscribedAt: '2026-10-16T00:00:00.000Z' }) + '\n');
+    app = await start(dataDir);
+    assert.equal((await subscribe(app.url, { email: shown, consent: true })).status, 200);
+    records = (await fs.readFile(file, 'utf8')).trim().split('\n').map(JSON.parse);
+    assert.equal(records.length, 2);
+    assert.deepEqual(records.map(record => record.email), [shown, radical]);
+    const seen = [];
+    const { elements, submit } = await client((url, options) => {
+        seen.push(JSON.parse(options.body));
+        return { ok: true, json: async () => ({ subscribed: true }) };
+    });
+    elements['email-input'].value = radical;
+    await submit();
+    assert.deepEqual(seen, [{ email: shown, consent: true }]);
+    assert.equal(elements['success-msg'].classes.has('show'), true);
+    assert.equal(elements['email-input'].attributes['aria-invalid'], undefined);
+    const rejected = await client(() => { throw new Error('should not send'); });
+    let focused = false;
+    rejected.elements['email-input'].focus = () => { focused = true; };
+    rejected.elements['email-input'].value = 'user@example\uFF65com';
+    await rejected.submit();
+    assert.equal(focused, true);
+    assert.match(rejected.elements['signup-error'].textContent, /valid email/);
+    assert.equal(rejected.elements['success-msg'].classes.has('show'), false);
+});
+
 test('request limit counts original bytes across chunks with exact boundary acceptance', async t => {
     const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));
     const app = await start(dataDir);
