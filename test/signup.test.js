@@ -616,6 +616,90 @@ test('halfwidth katakana is stored as the fullwidth mailbox it shows', async t =
     assert.equal(rejected.elements['success-msg'].classes.has('show'), false);
 });
 
+test('halfwidth hangul is stored as the hangul letter it shows', async t => {
+    const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));
+    let app = await start(dataDir);
+    t.after(async () => { await app.close(); await fs.rm(dataDir, { recursive: true }); });
+    const pages = await Promise.all(['index.html', 'wfl-landing.html'].map(file => fs.readFile(path.join(__dirname, '..', file), 'utf8')));
+    for (const html of pages) {
+        assert.match(html, /<script src="email\.js" defer><\/script>\s*<script src="signup\.js" defer><\/script>/);
+    }
+    // Unicode <narrow> targets for every assigned halfwidth hangul letter.
+    const narrow = [
+        [0xFFA1, 0x3131], [0xFFA2, 0x3132], [0xFFA3, 0x3133], [0xFFA4, 0x3134],
+        [0xFFA5, 0x3135], [0xFFA6, 0x3136], [0xFFA7, 0x3137], [0xFFA8, 0x3138],
+        [0xFFA9, 0x3139], [0xFFAA, 0x313A], [0xFFAB, 0x313B], [0xFFAC, 0x313C],
+        [0xFFAD, 0x313D], [0xFFAE, 0x313E], [0xFFAF, 0x313F], [0xFFB0, 0x3140],
+        [0xFFB1, 0x3141], [0xFFB2, 0x3142], [0xFFB3, 0x3143], [0xFFB4, 0x3144],
+        [0xFFB5, 0x3145], [0xFFB6, 0x3146], [0xFFB7, 0x3147], [0xFFB8, 0x3148],
+        [0xFFB9, 0x3149], [0xFFBA, 0x314A], [0xFFBB, 0x314B], [0xFFBC, 0x314C],
+        [0xFFBD, 0x314D], [0xFFBE, 0x314E], [0xFFC2, 0x314F], [0xFFC3, 0x3150],
+        [0xFFC4, 0x3151], [0xFFC5, 0x3152], [0xFFC6, 0x3153], [0xFFC7, 0x3154],
+        [0xFFCA, 0x3155], [0xFFCB, 0x3156], [0xFFCC, 0x3157], [0xFFCD, 0x3158],
+        [0xFFCE, 0x3159], [0xFFCF, 0x315A], [0xFFD2, 0x315B], [0xFFD3, 0x315C],
+        [0xFFD4, 0x315D], [0xFFD5, 0x315E], [0xFFD6, 0x315F], [0xFFD7, 0x3160],
+        [0xFFDA, 0x3161], [0xFFDB, 0x3162], [0xFFDC, 0x3163]
+    ];
+    for (const [half, shown] of narrow) {
+        const folded = String.fromCodePoint(shown) + '@example.com';
+        assert.equal(canonicalEmail(String.fromCodePoint(half) + '@example.com'), folded);
+        assert.equal(canonicalEmail(folded), folded);
+        // The conjoining jamo from full NFKC is not the letter the glyph shows.
+        assert.notEqual(folded, String.fromCodePoint(half).normalize('NFKC') + '@example.com');
+    }
+    const shown = '\u3131\u314F.\u3141@\u3134.kr';
+    const half = '\uFFA1\uFFC2.\uFFB1@\uFFA4.kr';
+    assert.equal(canonicalEmail('  ' + half + '  '), shown);
+    // NFKC of these letters glues a syllable and leaves a conjoining jamo.
+    assert.equal('\uFFA1\uFFC2\uFFA4@example.com'.normalize('NFKC').normalize('NFC'), '\uAC00\u1102@example.com');
+    assert.equal(canonicalEmail('\uFFA1\uFFC2\uFFA4@example.com'), '\u3131\u314F\u3134@example.com');
+    assert.equal(canonicalEmail('\uAC04@example.com'), '\uAC04@example.com');
+    for (const gap of ['\uFFA0', '\uFFBF', '\uFFC0', '\uFFC1', '\uFFC8', '\uFFC9', '\uFFD0', '\uFFD1', '\uFFD8', '\uFFD9', '\uFF65']) {
+        assert.equal(canonicalEmail(`user@example${gap}com`), '');
+    }
+    assert.equal(canonicalEmail('reader@café.example'), 'reader@café.example');
+    assert.equal(canonicalEmail('user@münchen.de'), 'user@münchen.de');
+    assert.equal(canonicalEmail('user+tag@example.com'), 'user+tag@example.com');
+    assert.equal(canonicalEmail("O'Brien@example.com"), "o'brien@example.com");
+    assert.equal(canonicalEmail('O\u2019Brien@example.com'), 'o\u2019brien@example.com');
+    assert.equal(canonicalEmail('\uFF76\uFF9E@\uFF71.jp'), 'ガ@ア.jp');
+    const responses = await Promise.all([
+        subscribe(app.url, { email: half, consent: true }),
+        subscribe(app.url, { email: shown, consent: true })
+    ]);
+    for (const response of responses) assert.equal(response.status, 200);
+    assert.equal((await subscribe(app.url, { email: 'user@example\uFFA0com', consent: true })).status, 400);
+    assert.equal((await subscribe(app.url, { email: '\uAC04@example.com', consent: true })).status, 200);
+    const file = path.join(dataDir, 'subscribers.jsonl');
+    let records = (await fs.readFile(file, 'utf8')).trim().split('\n').map(JSON.parse);
+    assert.deepEqual(records.map(record => record.email).sort(), [shown, '\uAC04@example.com'].sort());
+    await app.close();
+    await fs.appendFile(file, JSON.stringify({ email: half, consent: true, subscribedAt: '2026-10-16T00:00:00.000Z' }) + '\n');
+    app = await start(dataDir);
+    assert.equal((await subscribe(app.url, { email: shown, consent: true })).status, 200);
+    records = (await fs.readFile(file, 'utf8')).trim().split('\n').map(JSON.parse);
+    assert.equal(records.length, 3);
+    assert.deepEqual(records.map(record => record.email).sort(), [shown, '\uAC04@example.com', half].sort());
+    const seen = [];
+    const { elements, submit } = await client((url, options) => {
+        seen.push(JSON.parse(options.body));
+        return { ok: true, json: async () => ({ subscribed: true }) };
+    });
+    elements['email-input'].value = half;
+    await submit();
+    assert.deepEqual(seen, [{ email: shown, consent: true }]);
+    assert.equal(elements['success-msg'].classes.has('show'), true);
+    assert.equal(elements['email-input'].attributes['aria-invalid'], undefined);
+    const rejected = await client(() => { throw new Error('should not send'); });
+    let focused = false;
+    rejected.elements['email-input'].focus = () => { focused = true; };
+    rejected.elements['email-input'].value = 'user@example\uFFBFcom';
+    await rejected.submit();
+    assert.equal(focused, true);
+    assert.match(rejected.elements['signup-error'].textContent, /valid email/);
+    assert.equal(rejected.elements['success-msg'].classes.has('show'), false);
+});
+
 test('request limit counts original bytes across chunks with exact boundary acceptance', async t => {
     const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));
     const app = await start(dataDir);
