@@ -17,6 +17,8 @@
 // The one-dot leader (U+2024) and the small stop, plus, hyphen, and at
 // (U+FE52, U+FE62, U+FE63, U+FE6B) are drawn as those mailbox signs.
 // The vertical ideographic stop (U+FE12) sits above the line and is not a dot.
+// Thai sara am (U+0E33) and Lao sara am (U+0EB3) are one letter. The
+// compatibility sequence starts with a mark, so the same domain is rejected.
 const atom = "[\\p{L}\\p{M}\\p{N}!#$%&'*+\\-/=?^_`{|}~\\u2018\\u2019]";
 const label = "[\\p{L}\\p{N}](?:[\\p{L}\\p{M}\\p{N}-]*[\\p{L}\\p{M}\\p{N}])?";
 const deliverable = new RegExp(`^${atom}+(?:\\.${atom}+)*@${label}(?:\\.${label})+$`, 'u');
@@ -58,7 +60,8 @@ function foldCompatibility(value) {
             if (code === 0xFE62) return '+';
             if (code === 0xFE63) return '-';
             return '.';
-        });
+        })
+        .replace(/\u0E4D\u0E32|\u0ECD\u0EB2/gu, (seq) => seq === '\u0E4D\u0E32' ? '\u0E33' : '\u0EB3');
 }
 
 function canonicalEmail(value) {
