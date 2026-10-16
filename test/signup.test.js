@@ -305,6 +305,55 @@ test('Enter without consent asks for the agreement and does not post', async () 
     assert.equal(elements['agree-check'].attributes['aria-invalid'], undefined);
 });
 
+test('checking the agreement clears its alert and leaves other errors alone', async () => {
+    let calls = 0;
+    const { elements, document } = await client(() => { calls++; });
+    elements['agree-check'].checked = false;
+    elements['agree-check'].handlers.change();
+    elements['email-input'].value = 'reader@example.com';
+    elements['email-input'].validity = { valid: true };
+    let prevented = false;
+    elements['email-input'].handlers.keydown({
+        key: 'Enter', isComposing: false, keyCode: 13, preventDefault() { prevented = true; }
+    });
+    assert.equal(prevented, true);
+    assert.equal(calls, 0);
+    assert.equal(elements['signup-error'].textContent, 'Check the box to agree to receive the Weekly Festival Lowdown by email.');
+    assert.equal(document.activeElement, elements['agree-check']);
+    assert.equal(elements['agree-check'].attributes['aria-invalid'], 'true');
+    assert.equal(elements['agree-check'].attributes['aria-describedby'], 'signup-error');
+    elements['agree-check'].checked = true;
+    elements['agree-check'].handlers.change();
+    assert.equal(calls, 0);
+    assert.equal(elements['signup-error'].textContent, '');
+    assert.equal(elements['agree-check'].attributes['aria-invalid'], undefined);
+    assert.equal(elements['agree-check'].attributes['aria-describedby'], undefined);
+    assert.equal(elements['email-input'].attributes['aria-invalid'], undefined);
+    assert.equal(elements['submit-btn'].disabled, false);
+    assert.equal(document.activeElement, elements['agree-check']);
+    assert.equal(elements['signup-form'].style.display, undefined);
+    elements['agree-check'].checked = false;
+    elements['agree-check'].handlers.change();
+    assert.equal(elements['signup-error'].textContent, '');
+    assert.equal(elements['submit-btn'].disabled, true);
+    elements['agree-check'].checked = true;
+    elements['signup-error'].textContent = 'We couldn’t save your signup. Please try again.';
+    elements['agree-check'].handlers.change();
+    assert.equal(elements['signup-error'].textContent, 'We couldn’t save your signup. Please try again.');
+    assert.equal(elements['submit-btn'].disabled, false);
+    elements['signup-error'].textContent = 'Enter a valid email address.';
+    elements['email-input'].setAttribute('aria-invalid', 'true');
+    elements['email-input'].setAttribute('aria-describedby', 'signup-error');
+    elements['agree-check'].checked = false;
+    elements['agree-check'].handlers.change();
+    elements['agree-check'].checked = true;
+    elements['agree-check'].handlers.change();
+    assert.equal(elements['signup-error'].textContent, 'Enter a valid email address.');
+    assert.equal(elements['email-input'].attributes['aria-invalid'], 'true');
+    assert.equal(elements['email-input'].attributes['aria-describedby'], 'signup-error');
+    assert.equal(calls, 0);
+});
+
 test('Enter on an undeliverable address asks for a valid email and does not post', async () => {
     let calls = 0;
     const { elements, document } = await client(() => { calls++; });

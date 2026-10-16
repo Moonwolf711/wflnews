@@ -12,7 +12,13 @@ function updateButton() {
 }
 checkbox.addEventListener('change', function () {
     updateButton();
-    if (checkbox.checked) checkbox.removeAttribute('aria-invalid');
+    if (!checkbox.checked) return;
+    checkbox.removeAttribute('aria-invalid');
+    checkbox.removeAttribute('aria-describedby');
+    // Enter asks for the box, then leaves that alert up after the visitor agrees.
+    if (errorMsg.textContent === 'Check the box to agree to receive the Weekly Festival Lowdown by email.') {
+        errorMsg.textContent = '';
+    }
 });
 updateButton();
 
