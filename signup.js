@@ -22,13 +22,9 @@ checkbox.addEventListener('change', function () {
 });
 updateButton();
 
-// Enter in the email field looks for a submit button. That button stays
-// disabled until consent, so an unchecked box never hears the key.
-emailInput.addEventListener('keydown', function (event) {
-    if (event.key !== 'Enter' || submitting || checkbox.checked) return;
-    // IME uses Enter to confirm the character being composed. That is not a submit.
-    if (event.isComposing || event.keyCode === 229) return;
-    event.preventDefault();
+// The submit button stays disabled until consent, so it never hears Enter or a tap.
+// Explain the same way for both, instead of leaving the visitor with no response.
+function explainBlockedSignup() {
     if (emailInput.validity && !emailInput.validity.valid) {
         if (typeof form.reportValidity === 'function') form.reportValidity();
         showEmailError(emailInput.validationMessage);
@@ -46,6 +42,32 @@ emailInput.addEventListener('keydown', function (event) {
     checkbox.setAttribute('aria-describedby', 'signup-error');
     if (typeof checkbox.focus === 'function') checkbox.focus({ preventScroll: true });
     revealError();
+}
+
+// Enter in the email field looks for a submit button. That button stays
+// disabled until consent, so an unchecked box never hears the key.
+emailInput.addEventListener('keydown', function (event) {
+    if (event.key !== 'Enter' || submitting || checkbox.checked) return;
+    // IME uses Enter to confirm the character being composed. That is not a submit.
+    if (event.isComposing || event.keyCode === 229) return;
+    event.preventDefault();
+    explainBlockedSignup();
+});
+
+function hitsDisabledSubmit(event) {
+    if (submitting || checkbox.checked || !submitBtn.disabled) return false;
+    if (event.target === submitBtn) return true;
+    if (typeof submitBtn.getBoundingClientRect !== 'function') return false;
+    const rect = submitBtn.getBoundingClientRect();
+    return event.clientX >= rect.left && event.clientX <= rect.right &&
+        event.clientY >= rect.top && event.clientY <= rect.bottom;
+}
+
+// A disabled button swallows its own click. The hit lands on the field grid.
+form.addEventListener('click', function (event) {
+    if (!hitsDisabledSubmit(event)) return;
+    event.preventDefault();
+    explainBlockedSignup();
 });
 
 function revealError() {

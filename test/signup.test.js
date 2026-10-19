@@ -280,6 +280,53 @@ test('consent precedes the submit button in tab order on both landing pages', as
     assert.match(css, /\.signup-fields \.legal-check\s*\{[^}]*grid-row:\s*2/);
 });
 
+test('clicking the disabled submit button asks for what is missing and does not post', async () => {
+    let calls = 0;
+    const { elements, document } = await client(() => { calls++; });
+    elements['agree-check'].checked = false;
+    elements['agree-check'].handlers.change();
+    elements['signup-error'].textContent = '';
+    elements['email-input'].validity = { valid: true };
+    elements['email-input'].validationMessage = '';
+    elements['submit-btn'].getBoundingClientRect = () => ({ left: 10, top: 20, right: 110, bottom: 60 });
+    const click = (clientX, clientY) => {
+        let prevented = false;
+        elements['signup-form'].handlers.click({
+            // A disabled button does not receive the click. The hit lands on the field grid.
+            target: elements['signup-form'],
+            clientX, clientY,
+            preventDefault() { prevented = true; }
+        });
+        return prevented;
+    };
+    elements['email-input'].value = 'reader@example.com';
+    assert.equal(click(40, 30), true);
+    assert.equal(calls, 0);
+    assert.equal(elements['signup-error'].textContent, 'Check the box to agree to receive the Weekly Festival Lowdown by email.');
+    assert.equal(document.activeElement, elements['agree-check']);
+    assert.equal(elements['agree-check'].attributes['aria-invalid'], 'true');
+    assert.equal(elements['submit-btn'].disabled, true);
+    assert.equal(elements['signup-form'].style.display, undefined);
+    // A click on the field itself must not pretend the visitor tapped the button.
+    elements['signup-error'].textContent = '';
+    elements['agree-check'].removeAttribute('aria-invalid');
+    document.activeElement = elements['email-input'];
+    assert.equal(click(0, 0), false);
+    assert.equal(calls, 0);
+    assert.equal(elements['signup-error'].textContent, '');
+    assert.equal(document.activeElement, elements['email-input']);
+    elements['email-input'].value = '';
+    elements['email-input'].validity = { valid: false };
+    elements['email-input'].validationMessage = 'Please fill out this field.';
+    elements['signup-form'].reportValidity = () => false;
+    assert.equal(click(40, 30), true);
+    assert.equal(calls, 0);
+    assert.equal(elements['signup-error'].textContent, 'Please fill out this field.');
+    assert.equal(document.activeElement, elements['email-input']);
+    assert.equal(elements['email-input'].attributes['aria-invalid'], 'true');
+    assert.equal(elements['success-msg'].classes.has('show'), false);
+});
+
 test('Enter without consent asks for the agreement and does not post', async () => {
     let calls = 0;
     const { elements, document } = await client(() => { calls++; });
