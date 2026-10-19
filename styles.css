@@ -381,6 +381,8 @@ body {
 .success-msg.show {
     display: block;
     animation: fadeIn 0.5s ease;
+    /* Hiding the form pulls this line up under the fixed ticker. */
+    scroll-margin: 39px 0 16px;
 }
 
 @keyframes fadeIn {

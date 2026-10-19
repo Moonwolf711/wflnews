@@ -511,6 +511,38 @@ test('signup keeps keyboard focus on failure and moves it to the confirmation', 
     assert.equal(confirmed.elements['signup-form'].style.display, 'none');
 });
 
+test('confirmation is brought into view when hiding the form leaves it under the ticker', async () => {
+    const css = await fs.readFile(path.join(__dirname, '../styles.css'), 'utf8');
+    assert.match(css, /\.success-msg\.show \{[^}]*scroll-margin:\s*39px 0 16px;/);
+    const { elements, document, submit } = await client(async () => ({ ok: true, json: async () => ({ subscribed: true }) }));
+    const scrolls = [];
+    elements['success-msg'].scrollIntoView = options => { scrolls.push(options); };
+    document.activeElement = elements['email-input'];
+    await submit();
+    assert.equal(document.activeElement, elements['success-msg']);
+    assert.equal(elements['success-msg'].classes.has('show'), true);
+    assert.equal(elements['signup-form'].style.display, 'none');
+    assert.equal(scrolls.length, 1);
+    assert.equal(scrolls[0].block, 'nearest');
+    assert.equal(scrolls[0].inline, 'nearest');
+    assert.equal(scrolls[0].behavior, 'auto');
+    // A late webfont reflow can push the same line back under the ticker.
+    let releaseFonts;
+    const again = await client(async () => ({ ok: true, json: async () => ({ subscribed: true }) }));
+    const againScrolls = [];
+    again.elements['success-msg'].scrollIntoView = options => { againScrolls.push(options); };
+    again.document.fonts = { ready: new Promise(resolve => { releaseFonts = resolve; }) };
+    await again.submit();
+    assert.equal(againScrolls.length, 1);
+    releaseFonts();
+    await again.document.fonts.ready;
+    await Promise.resolve();
+    assert.equal(againScrolls.length, 2);
+    assert.equal(againScrolls[1].block, 'nearest');
+    assert.equal(againScrolls[1].behavior, 'auto');
+    assert.equal(again.document.activeElement, again.elements['success-msg']);
+});
+
 test('malformed UTF-8 cannot be accepted as a different subscriber address', async t => {
     const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));
     const app = await start(dataDir);
