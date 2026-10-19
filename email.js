@@ -67,12 +67,41 @@ function foldCompatibility(value) {
         .replace(/[\u3192-\u319F]/gu, (ch) => ch.normalize('NFKC'));
 }
 
+function utf8Length(value) {
+    // A supplementary character is a surrogate pair and four UTF-8 octets.
+    let n = 0;
+    for (let i = 0; i < value.length; i++) {
+        const code = value.charCodeAt(i);
+        if (code < 0x80) n += 1;
+        else if (code < 0x800) n += 2;
+        else if (code >= 0xD800 && code <= 0xDBFF) {
+            n += 4;
+            i += 1;
+        } else n += 3;
+    }
+    return n;
+}
+
+function withinDeliveryLimits(email) {
+    // SMTP refuses a local part over 64 octets or an address over 254.
+    // DNS refuses a label over 63. UTF-16 length misses both.
+    const at = email.indexOf('@');
+    const local = email.slice(0, at);
+    const domain = email.slice(at + 1);
+    if (utf8Length(local) > 64 || utf8Length(email) > 254) return false;
+    for (const label of domain.split('.')) {
+        if (utf8Length(label) > 63) return false;
+    }
+    return true;
+}
+
 function canonicalEmail(value) {
     if (typeof value !== 'string') return '';
     const email = foldCompatibility(value.trim()).normalize('NFC').toLowerCase();
     if (email.length === 0 || email.length > 254) return '';
     // Dots must separate non-empty labels. A trailing or doubled dot cannot be delivered.
     if (!deliverable.test(email)) return '';
+    if (!withinDeliveryLimits(email)) return '';
     // Controls, format characters (including bidi), and other default-ignorable marks
     // would store one address that looks like another. Controls are not all default-ignorable.
     if (/\p{Cc}|\p{Cf}|\p{Default_Ignorable_Code_Point}/u.test(email)) return '';

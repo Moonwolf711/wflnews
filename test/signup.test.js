@@ -1112,6 +1112,57 @@ test('kanbun marks are stored as the ideographs they show', async t => {
     assert.equal(rejected.elements['success-msg'].classes.has('show'), false);
 });
 
+test('addresses smtp cannot deliver are rejected before a signup is stored or sent', async t => {
+    const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));
+    const app = await start(dataDir);
+    t.after(async () => { await app.close(); await fs.rm(dataDir, { recursive: true }); });
+    const maxLocal = 'a'.repeat(64);
+    const maxDomain = `${'b'.repeat(63)}.${'c'.repeat(63)}.${'d'.repeat(61)}`;
+    const maxAddress = `${maxLocal}@${maxDomain}`;
+    assert.equal(maxAddress.length, 254);
+    assert.equal(canonicalEmail(`  ${maxLocal.toUpperCase()}@${maxDomain.toUpperCase()}  `), maxAddress);
+    assert.equal(canonicalEmail('ü'.repeat(32) + '@example.com'), 'ü'.repeat(32) + '@example.com');
+    assert.equal(canonicalEmail('user@' + 'ü'.repeat(31) + '.com'), 'user@' + 'ü'.repeat(31) + '.com');
+    assert.equal(canonicalEmail('user@' + 'a'.repeat(63) + '.com'), 'user@' + 'a'.repeat(63) + '.com');
+    const undeliverable = [
+        'a'.repeat(65) + '@example.com',
+        'A'.repeat(65) + '@Example.com',
+        'ü'.repeat(33) + '@example.com',
+        'user@' + 'a'.repeat(64) + '.com',
+        'user@' + 'ü'.repeat(32) + '.com',
+        'ü'.repeat(200) + '@example.com'
+    ];
+    for (const email of undeliverable) {
+        assert.equal(canonicalEmail(email), '');
+        assert.equal((await subscribe(app.url, { email, consent: true })).status, 400);
+    }
+    assert.equal(canonicalEmail('reader@café.example'), 'reader@café.example');
+    assert.equal(canonicalEmail('user+tag@example.com'), 'user+tag@example.com');
+    assert.equal((await subscribe(app.url, { email: maxAddress, consent: true })).status, 200);
+    assert.equal((await subscribe(app.url, { email: 'ü'.repeat(32) + '@example.com', consent: true })).status, 200);
+    const file = path.join(dataDir, 'subscribers.jsonl');
+    const records = (await fs.readFile(file, 'utf8')).trim().split('\n').map(JSON.parse);
+    assert.deepEqual(records.map(record => record.email).sort(), [maxAddress, 'ü'.repeat(32) + '@example.com'].sort());
+    const seen = [];
+    const { elements, submit } = await client((url, options) => {
+        seen.push(JSON.parse(options.body));
+        return { ok: true, json: async () => ({ subscribed: true }) };
+    });
+    elements['email-input'].value = 'a'.repeat(65) + '@example.com';
+    let focused = false;
+    elements['email-input'].focus = () => { focused = true; };
+    await submit();
+    assert.equal(seen.length, 0);
+    assert.equal(focused, true);
+    assert.match(elements['signup-error'].textContent, /valid email/);
+    assert.equal(elements['email-input'].attributes['aria-invalid'], 'true');
+    assert.equal(elements['success-msg'].classes.has('show'), false);
+    elements['email-input'].value = 'ü'.repeat(32) + '@example.com';
+    await submit();
+    assert.deepEqual(seen, [{ email: 'ü'.repeat(32) + '@example.com', consent: true }]);
+    assert.equal(elements['success-msg'].classes.has('show'), true);
+});
+
 test('request limit counts original bytes across chunks with exact boundary acceptance', async t => {
     const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));
     const app = await start(dataDir);
