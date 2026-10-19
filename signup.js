@@ -22,6 +22,14 @@ checkbox.addEventListener('change', function () {
 });
 updateButton();
 
+// Back navigation restores the checkbox after this script ran, and does not
+// fire change. The button would stay disabled over an agreement that is checked.
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    window.addEventListener('pageshow', function () {
+        updateButton();
+    });
+}
+
 // The submit button stays disabled until consent, so it never hears Enter or a tap.
 // Explain the same way for both, instead of leaving the visitor with no response.
 function explainBlockedSignup() {

@@ -96,11 +96,12 @@ async function client(fetchImpl) {
         elements[id].classList = { add: value => elements[id].classes.add(value) };
     }
     elements['signup-form'].contains = node => node === elements['email-input'] || node === elements['submit-btn'] || node === elements['agree-check'];
+    const windowStub = { handlers: {}, addEventListener(name, callback) { this.handlers[name] = callback; } };
     vm.runInNewContext(await fs.readFile(path.join(__dirname, '../signup.js'), 'utf8'), {
-        document: documentStub, fetch: fetchImpl,
+        document: documentStub, fetch: fetchImpl, window: windowStub,
         canonicalEmail, AbortController, setTimeout, clearTimeout
     });
-    return { elements, document: documentStub, submit: () => elements['signup-form'].handlers.submit({ preventDefault() {} }) };
+    return { elements, document: documentStub, window: windowStub, submit: () => elements['signup-form'].handlers.submit({ preventDefault() {} }) };
 }
 
 test('client shows success only after confirmation and prevents parallel submissions', async () => {
@@ -135,6 +136,28 @@ test('client requires explicit consent before sending', async () => {
     elements['agree-check'].checked = false;
     elements['agree-check'].handlers.change();
     await submit();
+    assert.equal(elements['submit-btn'].disabled, true);
+    assert.equal(calls, 0);
+});
+
+test('returning to the page enables the button when the agreement was restored', async () => {
+    let calls = 0;
+    const { elements, window: win } = await client(() => { calls++; });
+    elements['agree-check'].checked = false;
+    elements['agree-check'].handlers.change();
+    assert.equal(elements['submit-btn'].disabled, true);
+    // Back navigation restores the checkbox after the first pass, with no change event.
+    elements['agree-check'].checked = true;
+    elements['email-input'].value = 'restore@example.com';
+    assert.equal(elements['submit-btn'].disabled, true);
+    win.handlers.pageshow({ persisted: false });
+    assert.equal(calls, 0);
+    assert.equal(elements['submit-btn'].disabled, false);
+    assert.equal(elements['agree-check'].checked, true);
+    assert.equal(elements['signup-form'].style.display, undefined);
+    assert.equal(elements['success-msg'].classes.has('show'), false);
+    elements['agree-check'].checked = false;
+    win.handlers.pageshow({ persisted: true });
     assert.equal(elements['submit-btn'].disabled, true);
     assert.equal(calls, 0);
 });
