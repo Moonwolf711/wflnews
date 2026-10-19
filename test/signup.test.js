@@ -91,14 +91,15 @@ async function client(fetchImpl) {
             reportValidity() { return true; },
             setAttribute(name, value) { this.attributes[name] = value; },
             removeAttribute(name) { delete this.attributes[name]; },
-            focus() { documentStub.activeElement = this; }
+            focus() { documentStub.activeElement = this; },
+            dispatchEvent(event) { if (this.handlers[event.type]) this.handlers[event.type](event); }
         };
         elements[id].classList = { add: value => elements[id].classes.add(value) };
     }
     elements['signup-form'].contains = node => node === elements['email-input'] || node === elements['submit-btn'] || node === elements['agree-check'];
     const windowStub = { handlers: {}, addEventListener(name, callback) { this.handlers[name] = callback; } };
     vm.runInNewContext(await fs.readFile(path.join(__dirname, '../signup.js'), 'utf8'), {
-        document: documentStub, fetch: fetchImpl, window: windowStub,
+        document: documentStub, fetch: fetchImpl, window: windowStub, Event,
         canonicalEmail, AbortController, setTimeout, clearTimeout
     });
     return { elements, document: documentStub, window: windowStub, submit: () => elements['signup-form'].handlers.submit({ preventDefault() {} }) };
@@ -348,6 +349,49 @@ test('clicking the disabled submit button asks for what is missing and does not 
     assert.equal(document.activeElement, elements['email-input']);
     assert.equal(elements['email-input'].attributes['aria-invalid'], 'true');
     assert.equal(elements['success-msg'].classes.has('show'), false);
+});
+
+test('Enter on the agreement checkbox checks it and does not post', async () => {
+    let calls = 0;
+    const { elements, document } = await client(() => { calls++; });
+    elements['agree-check'].checked = false;
+    elements['agree-check'].handlers.change();
+    elements['email-input'].value = 'reader@example.com';
+    elements['email-input'].validity = { valid: true };
+    elements['email-input'].handlers.keydown({ key: 'Enter', isComposing: false, keyCode: 13, preventDefault() {} });
+    assert.equal(document.activeElement, elements['agree-check']);
+    assert.equal(elements['signup-error'].textContent, 'Check the box to agree to receive the Weekly Festival Lowdown by email.');
+    let prevented = false;
+    elements['agree-check'].handlers.keydown({
+        key: 'Enter', isComposing: false, keyCode: 13, preventDefault() { prevented = true; }
+    });
+    assert.equal(prevented, true);
+    assert.equal(calls, 0);
+    assert.equal(elements['agree-check'].checked, true);
+    assert.equal(elements['submit-btn'].disabled, false);
+    assert.equal(elements['signup-error'].textContent, '');
+    assert.equal(elements['agree-check'].attributes['aria-invalid'], undefined);
+    assert.equal(elements['agree-check'].attributes['aria-describedby'], undefined);
+    assert.equal(document.activeElement, elements['agree-check']);
+    assert.equal(elements['success-msg'].classes.has('show'), false);
+    // A second Enter is a real submit, not another toggle.
+    prevented = false;
+    elements['agree-check'].handlers.keydown({
+        key: 'Enter', isComposing: false, keyCode: 13, preventDefault() { prevented = true; }
+    });
+    assert.equal(prevented, false);
+    assert.equal(elements['agree-check'].checked, true);
+    assert.equal(calls, 0);
+    // IME confirm must not check the box.
+    elements['agree-check'].checked = false;
+    elements['agree-check'].handlers.change();
+    elements['agree-check'].handlers.keydown({
+        key: 'Enter', isComposing: false, keyCode: 229, preventDefault() { prevented = true; }
+    });
+    assert.equal(prevented, false);
+    assert.equal(elements['agree-check'].checked, false);
+    assert.equal(elements['submit-btn'].disabled, true);
+    assert.equal(calls, 0);
 });
 
 test('Enter without consent asks for the agreement and does not post', async () => {

@@ -20,6 +20,14 @@ checkbox.addEventListener('change', function () {
         errorMsg.textContent = '';
     }
 });
+// The prompt moves focus here. Another Enter is the visitor agreeing, not a submit.
+checkbox.addEventListener('keydown', function (event) {
+    if (event.key !== 'Enter' || submitting || checkbox.checked) return;
+    if (event.isComposing || event.keyCode === 229) return;
+    event.preventDefault();
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new Event('change'));
+});
 updateButton();
 
 // Back navigation restores the checkbox after this script ran, and does not
