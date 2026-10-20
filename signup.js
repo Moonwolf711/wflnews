@@ -20,13 +20,19 @@ checkbox.addEventListener('change', function () {
         errorMsg.textContent = '';
     }
 });
-// The prompt moves focus here. Another Enter is the visitor agreeing, not a submit.
+// The prompt moves focus here. The first Enter agrees and does not submit.
+// A checkbox has no implicit submit, so the next Enter asks the button.
+// A repeating key must not agree and submit in the same hold.
 checkbox.addEventListener('keydown', function (event) {
-    if (event.key !== 'Enter' || submitting || checkbox.checked) return;
+    if (event.key !== 'Enter' || submitting || event.repeat) return;
     if (event.isComposing || event.keyCode === 229) return;
     event.preventDefault();
-    checkbox.checked = true;
-    checkbox.dispatchEvent(new Event('change'));
+    if (!checkbox.checked) {
+        checkbox.checked = true;
+        checkbox.dispatchEvent(new Event('change'));
+        return;
+    }
+    if (typeof form.requestSubmit === 'function') form.requestSubmit();
 });
 updateButton();
 
