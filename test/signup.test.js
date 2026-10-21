@@ -292,6 +292,37 @@ test('empty address replaces a stale save error instead of asking for a retry', 
     assert.equal(elements['submit-btn'].disabled, false);
 });
 
+test('an empty address stays inline and does not open the browser bubble over the agreement', async () => {
+    let reports = 0;
+    const { elements, document, submit } = await client(() => { throw new Error('should not send'); });
+    elements['email-input'].value = '';
+    elements['email-input'].validity = { valid: false };
+    elements['email-input'].validationMessage = 'Please fill out this field.';
+    elements['signup-form'].reportValidity = () => { reports++; return false; };
+    await submit();
+    assert.equal(reports, 0);
+    assert.equal(elements['signup-error'].textContent, 'Please fill out this field.');
+    assert.equal(document.activeElement, elements['email-input']);
+    assert.equal(elements['email-input'].attributes['aria-invalid'], 'true');
+    assert.equal(elements['agree-check'].checked, true);
+    assert.equal(elements['submit-btn'].disabled, false);
+    assert.equal(elements['success-msg'].classes.has('show'), false);
+    elements['agree-check'].checked = false;
+    elements['agree-check'].handlers.change();
+    elements['signup-error'].textContent = '';
+    elements['submit-btn'].getBoundingClientRect = () => ({ left: 10, top: 20, right: 110, bottom: 60 });
+    elements['signup-form'].handlers.click({
+        target: elements['signup-form'],
+        clientX: 40, clientY: 30,
+        preventDefault() {}
+    });
+    assert.equal(reports, 0);
+    assert.equal(elements['signup-error'].textContent, 'Please fill out this field.');
+    assert.equal(document.activeElement, elements['email-input']);
+    assert.equal(elements['submit-btn'].disabled, true);
+    assert.equal(elements['agree-check'].checked, false);
+});
+
 test('consent precedes the submit button in tab order on both landing pages', async () => {
     // A disabled submit control is skipped. It has to follow the checkbox or
     // Tab leaves the form and the retry button cannot be reached going forward.

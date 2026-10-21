@@ -48,7 +48,7 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
 // Explain the same way for both, instead of leaving the visitor with no response.
 function explainBlockedSignup() {
     if (emailInput.validity && !emailInput.validity.valid) {
-        if (typeof form.reportValidity === 'function') form.reportValidity();
+        // reportValidity paints the browser bubble across the agreement line.
         showEmailError(emailInput.validationMessage);
         return;
     }
@@ -145,10 +145,12 @@ form.addEventListener('submit', async function (event) {
     if (submitting) return;
     // novalidate lets a required field reach here. Without it the browser
     // swallows the submit and a previous save error stays on screen.
-    if (!form.reportValidity() || !checkbox.checked) {
-        if (emailInput.validity && !emailInput.validity.valid) showEmailError(emailInput.validationMessage);
+    // The inline error is the prompt. reportValidity would cover the agreement.
+    if (emailInput.validity && !emailInput.validity.valid) {
+        showEmailError(emailInput.validationMessage);
         return;
     }
+    if (!checkbox.checked) return;
     const email = canonicalEmail(emailInput.value);
     if (!email) {
         showEmailError();
