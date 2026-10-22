@@ -66,12 +66,25 @@ function explainBlockedSignup() {
     revealError();
 }
 
+// Chrome fires submit on the Enter that confirms an IME character, before
+// compositionend. Cancelling that key leaves the composition open, so the next
+// Enter never signs up. Ignore the signup instead, and let the character commit.
+let imeEnter = false;
+emailInput.addEventListener('compositionend', function () {
+    imeEnter = false;
+});
+
 // Enter in the email field looks for a submit button. That button stays
 // disabled until consent, so an unchecked box never hears the key.
 emailInput.addEventListener('keydown', function (event) {
-    if (event.key !== 'Enter' || submitting || checkbox.checked) return;
+    if (event.key !== 'Enter' || submitting) return;
     // IME uses Enter to confirm the character being composed. That is not a submit.
-    if (event.isComposing || event.keyCode === 229) return;
+    if (event.isComposing || event.keyCode === 229) {
+        imeEnter = true;
+        return;
+    }
+    imeEnter = false;
+    if (checkbox.checked) return;
     event.preventDefault();
     explainBlockedSignup();
 });
@@ -143,6 +156,11 @@ function showEmailError(message) {
 form.addEventListener('submit', async function (event) {
     event.preventDefault();
     if (submitting) return;
+    // The Enter that confirms an IME character also submits. The address is not finished.
+    if (imeEnter) {
+        imeEnter = false;
+        return;
+    }
     // novalidate lets a required field reach here. Without it the browser
     // swallows the submit and a previous save error stays on screen.
     // The inline error is the prompt. reportValidity would cover the agreement.

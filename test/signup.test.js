@@ -655,6 +655,76 @@ test('Enter during IME composition finishes the address and does not ask for con
     assert.equal(elements['submit-btn'].disabled, false);
 });
 
+test('IME confirmation Enter does not submit a checked signup', async () => {
+    let calls = 0;
+    const seen = [];
+    const { elements } = await client((url, options) => {
+        calls++;
+        seen.push(JSON.parse(options.body));
+        return { ok: true, json: async () => ({ subscribed: true }) };
+    });
+    elements['agree-check'].checked = true;
+    elements['agree-check'].handlers.change();
+    elements['email-input'].value = 'reader@example.com';
+    elements['email-input'].validity = { valid: true };
+    elements['signup-error'].textContent = '';
+    // Chrome submits on the Enter that confirms an IME character, before compositionend.
+    // That key must not be cancelled or the composition stays open and the next Enter never signs up.
+    let prevented = false;
+    const enter = extra => {
+        prevented = false;
+        elements['email-input'].handlers.keydown({
+            key: 'Enter', isComposing: false, keyCode: 13, preventDefault() { prevented = true; }, ...extra
+        });
+    };
+    enter({ isComposing: true, keyCode: 13 });
+    assert.equal(prevented, false);
+    await elements['signup-form'].handlers.submit({ preventDefault() {} });
+    elements['email-input'].handlers.compositionend?.();
+    assert.equal(calls, 0);
+    assert.equal(elements['signup-error'].textContent, '');
+    assert.equal(elements['success-msg'].classes.has('show'), false);
+    assert.equal(elements['signup-form'].style.display, undefined);
+    // keyCode 229 is Chrome's confirming Enter after isComposing is already false.
+    enter({ isComposing: false, keyCode: 229 });
+    assert.equal(prevented, false);
+    await elements['signup-form'].handlers.submit({ preventDefault() {} });
+    elements['email-input'].handlers.compositionend?.();
+    assert.equal(calls, 0);
+    assert.equal(elements['success-msg'].classes.has('show'), false);
+    // The committed address still signs up on the next Enter.
+    enter();
+    assert.equal(prevented, false);
+    await elements['signup-form'].handlers.submit({ preventDefault() {} });
+    assert.equal(calls, 1);
+    assert.deepEqual(seen, [{ email: 'reader@example.com', consent: true }]);
+    assert.equal(elements['success-msg'].classes.has('show'), true);
+
+    // An IME Enter while the button is disabled must not swallow the click that follows.
+    const later = await client((url, options) => {
+        calls++;
+        seen.push(JSON.parse(options.body));
+        return { ok: true, json: async () => ({ subscribed: true }) };
+    });
+    later.elements['agree-check'].checked = false;
+    later.elements['agree-check'].handlers.change();
+    later.elements['email-input'].value = 'reader@example.com';
+    later.elements['email-input'].validity = { valid: true };
+    later.elements['signup-error'].textContent = '';
+    prevented = false;
+    later.elements['email-input'].handlers.keydown({
+        key: 'Enter', isComposing: true, keyCode: 13, preventDefault() { prevented = true; }
+    });
+    assert.equal(prevented, false);
+    assert.equal(later.elements['signup-error'].textContent, '');
+    later.elements['email-input'].handlers.compositionend?.();
+    later.elements['agree-check'].checked = true;
+    later.elements['agree-check'].handlers.change();
+    await later.elements['signup-form'].handlers.submit({ preventDefault() {} });
+    assert.equal(calls, 2);
+    assert.deepEqual(seen[1], { email: 'reader@example.com', consent: true });
+});
+
 test('signup keeps keyboard focus on failure and moves it to the confirmation', async () => {
     const pages = await Promise.all(['index.html', 'wfl-landing.html'].map(file => fs.readFile(path.join(__dirname, '..', file), 'utf8')));
     for (const html of pages) assert.match(html, /id="success-msg"[^>]*tabindex="-1"/);
