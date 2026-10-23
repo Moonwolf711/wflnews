@@ -103,7 +103,10 @@ async function client(fetchImpl) {
         this.lastSubmit = result;
         return result;
     };
-    const windowStub = { handlers: {}, addEventListener(name, callback) { this.handlers[name] = callback; } };
+    const windowStub = {
+        handlers: {}, innerWidth: 390, innerHeight: 844,
+        addEventListener(name, callback) { this.handlers[name] = callback; }
+    };
     vm.runInNewContext(await fs.readFile(path.join(__dirname, '../signup.js'), 'utf8'), {
         document: documentStub, fetch: fetchImpl, window: windowStub, Event,
         canonicalEmail, AbortController, setTimeout, clearTimeout
@@ -1643,6 +1646,67 @@ test('consent error stays inside a short stacked window', async () => {
     assert.ok(errMargin > 0 && errMargin <= 6);
     assert.ok(errSize > 0 && errSize <= 12);
     assert.ok(saved >= 79);
+});
+
+test('turning the window brings the signup back and a taller window does not', async () => {
+    // Both landings share this script. A phone that is already showing the
+    // consent error is at the top of the page; turning it to landscape leaves
+    // the focused agreement and the error below the fold. A URL-bar resize
+    // only changes height, and must not yank the visitor back.
+    const { elements, document, window: win } = await client(() => { throw new Error('should not send'); });
+    assert.equal(typeof win.handlers.resize, 'function');
+    const errorScrolls = [];
+    const emailScrolls = [];
+    const successScrolls = [];
+    elements['signup-error'].scrollIntoView = options => { errorScrolls.push(options); };
+    elements['email-input'].scrollIntoView = options => { emailScrolls.push(options); };
+    elements['success-msg'].scrollIntoView = options => { successScrolls.push(options); };
+    elements['success-msg'].classList.contains = name => elements['success-msg'].classes.has(name);
+    elements['signup-error'].textContent = 'Check the box to agree to receive the Weekly Festival Lowdown by email.';
+    document.activeElement = elements['agree-check'];
+    win.innerWidth = 844;
+    win.innerHeight = 390;
+    win.handlers.resize();
+    assert.equal(errorScrolls.length, 1);
+    assert.equal(errorScrolls[0].block, 'nearest');
+    assert.equal(errorScrolls[0].inline, 'nearest');
+    assert.equal(errorScrolls[0].behavior, 'auto');
+    assert.equal(emailScrolls.length, 0);
+    assert.equal(successScrolls.length, 0);
+    win.innerWidth = 844;
+    win.innerHeight = 300;
+    win.handlers.resize();
+    assert.equal(errorScrolls.length, 1);
+
+    elements['signup-error'].textContent = '';
+    document.activeElement = null;
+    win.innerWidth = 390;
+    win.innerHeight = 844;
+    win.handlers.resize();
+    assert.equal(errorScrolls.length, 1);
+    assert.equal(emailScrolls.length, 0);
+    assert.equal(successScrolls.length, 0);
+
+    document.activeElement = elements['email-input'];
+    win.innerWidth = 844;
+    win.innerHeight = 390;
+    win.handlers.resize();
+    assert.equal(emailScrolls.length, 1);
+    assert.equal(emailScrolls[0].block, 'nearest');
+    assert.equal(emailScrolls[0].behavior, 'auto');
+    assert.equal(errorScrolls.length, 1);
+
+    elements['email-input'].scrollIntoView = () => { throw new Error('focused field should stay put'); };
+    elements['success-msg'].classes.add('show');
+    elements['success-msg'].textContent = "✓ You're on the list. First drop coming soon.";
+    document.activeElement = elements['success-msg'];
+    win.innerWidth = 390;
+    win.innerHeight = 844;
+    win.handlers.resize();
+    assert.equal(successScrolls.length, 1);
+    assert.equal(successScrolls[0].block, 'nearest');
+    assert.equal(successScrolls[0].behavior, 'auto');
+    assert.equal(emailScrolls.length, 1);
 });
 
 test('request limit counts original bytes across chunks with exact boundary acceptance', async t => {

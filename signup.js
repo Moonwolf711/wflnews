@@ -157,6 +157,36 @@ function revealError() {
     }
 }
 
+// A portrait window can already show the signup. Turning to landscape keeps
+// the scroll at the top, so the agreement the visitor is using sits below the fold.
+// A URL bar only changes height. That must not pull them back.
+let viewportWidth = typeof window !== 'undefined' ? window.innerWidth || 0 : 0;
+let viewportHeight = typeof window !== 'undefined' ? window.innerHeight || 0 : 0;
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    window.addEventListener('resize', function () {
+        const width = window.innerWidth || 0;
+        const height = window.innerHeight || 0;
+        const turned = viewportWidth > 0 && viewportHeight > 0 && width > 0 && height > 0 &&
+            (viewportWidth > viewportHeight) !== (width > height);
+        viewportWidth = width;
+        viewportHeight = height;
+        if (!turned) return;
+        if (errorMsg.textContent) {
+            revealError();
+            return;
+        }
+        const success = document.getElementById('success-msg');
+        if (success && typeof success.classList?.contains === 'function' && success.classList.contains('show')) {
+            revealSuccess(success);
+            return;
+        }
+        const active = document.activeElement;
+        if (active && typeof form.contains === 'function' && form.contains(active) && typeof active.scrollIntoView === 'function') {
+            active.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' });
+        }
+    });
+}
+
 function showEmailError(message) {
     errorMsg.textContent = message || 'Enter a valid email address.';
     emailInput.setAttribute('aria-invalid', 'true');
