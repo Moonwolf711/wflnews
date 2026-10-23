@@ -124,13 +124,28 @@ function revealSuccess(success) {
     }
 }
 
+function keepAddressBelowTicker() {
+    // scrollIntoView uses the layout viewport. The ticker is fixed over the top of it,
+    // so a tall error on a short window slides the typed address completely under that bar.
+    if (typeof document.querySelector !== 'function' || typeof window === 'undefined' || typeof window.scrollBy !== 'function') return;
+    const ticker = document.querySelector('.ticker-wrap');
+    if (!ticker || typeof ticker.getBoundingClientRect !== 'function' || typeof emailInput.getBoundingClientRect !== 'function') return;
+    const bar = ticker.getBoundingClientRect().bottom;
+    const rect = emailInput.getBoundingClientRect();
+    // 6px holds the focus ring clear, the same gap the field's scroll-margin leaves under a 33px ticker.
+    if (!(rect.height > 0) || rect.top >= bar + 6) return;
+    window.scrollBy({ left: 0, top: rect.top - (bar + 6), behavior: 'auto' });
+}
+
 function revealError() {
     // The retry control can sit fully inside a short window while this line stays past the fold.
     // Webfonts then reflow the hero and can push the same line back out.
     if (typeof errorMsg.scrollIntoView !== 'function') return;
     const options = { block: 'nearest', inline: 'nearest', behavior: 'auto' };
     const scroll = () => {
-        if (errorMsg.textContent) errorMsg.scrollIntoView(options);
+        if (!errorMsg.textContent) return;
+        errorMsg.scrollIntoView(options);
+        keepAddressBelowTicker();
     };
     scroll();
     const fonts = typeof document !== 'undefined' && document.fonts;

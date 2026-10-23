@@ -957,6 +957,76 @@ test('signup errors below the fold are brought into view without moving failure 
     assert.equal(confirmed.elements['success-msg'].classes.has('show'), true);
 });
 
+test('a tall signup error does not leave the address under the ticker', async () => {
+    // Both landings share this script. scrollIntoView lines the error up with the
+    // layout viewport and ignores the fixed ticker, so the typed address slides under it.
+    function layout(page, top) {
+        const moved = [];
+        page.window.scrollBy = options => { moved.push(options); };
+        page.document.querySelector = selector => selector === '.ticker-wrap'
+            ? { getBoundingClientRect: () => ({ bottom: 33 }) }
+            : null;
+        page.elements['email-input'].getBoundingClientRect = () => ({ top, height: 58, bottom: top + 58 });
+        page.elements['signup-error'].scrollIntoView = () => { moved.push('error'); };
+        page.elements['agree-check'].checked = false;
+        page.elements['agree-check'].handlers.change();
+        page.elements['email-input'].value = 'reader@example.com';
+        page.elements['email-input'].validity = { valid: true };
+        page.elements['submit-btn'].getBoundingClientRect = () => ({ left: 10, top: 20, right: 110, bottom: 60 });
+        return moved;
+    }
+    const click = page => page.elements['signup-form'].handlers.click({
+        target: page.elements['signup-form'],
+        clientX: 40, clientY: 30,
+        preventDefault() {}
+    });
+
+    let calls = 0;
+    const hidden = await client(() => { calls++; });
+    const moved = layout(hidden, -17);
+    click(hidden);
+    assert.equal(calls, 0);
+    assert.equal(hidden.elements['signup-error'].textContent, 'Check the box to agree to receive the Weekly Festival Lowdown by email.');
+    assert.equal(hidden.document.activeElement, hidden.elements['agree-check']);
+    assert.equal(hidden.elements['success-msg'].classes.has('show'), false);
+    assert.equal(hidden.elements['signup-form'].style.display, undefined);
+    // 33px ticker plus the 6px ring. The address was 17px above the viewport.
+    // The scroll record is created in the page realm, so compare its fields.
+    assert.equal(moved.length, 2);
+    assert.equal(moved[0], 'error');
+    assert.equal(moved[1].left, 0);
+    assert.equal(moved[1].top, -56);
+    assert.equal(moved[1].behavior, 'auto');
+
+    const clear = await client(() => { calls++; });
+    const stayed = layout(clear, 80);
+    click(clear);
+    assert.equal(calls, 0);
+    assert.deepEqual(stayed, ['error']);
+
+    const partial = await client(async () => { calls++; throw new Error('offline'); });
+    const nudged = [];
+    partial.window.scrollBy = options => { nudged.push(options); };
+    partial.document.querySelector = selector => selector === '.ticker-wrap'
+        ? { getBoundingClientRect: () => ({ bottom: 33 }) }
+        : null;
+    partial.elements['email-input'].getBoundingClientRect = () => ({ top: 7, height: 58, bottom: 65 });
+    partial.elements['email-input'].value = 'reader@example.com';
+    partial.elements['email-input'].validity = { valid: true };
+    partial.elements['signup-error'].scrollIntoView = () => { nudged.push('error'); };
+    partial.document.activeElement = partial.elements['submit-btn'];
+    await partial.submit();
+    assert.equal(calls, 1);
+    assert.match(partial.elements['signup-error'].textContent, /try again/);
+    assert.equal(partial.document.activeElement, partial.elements['submit-btn']);
+    assert.equal(partial.elements['success-msg'].classes.has('show'), false);
+    assert.equal(nudged.length, 2);
+    assert.equal(nudged[0], 'error');
+    assert.equal(nudged[1].left, 0);
+    assert.equal(nudged[1].top, -32);
+    assert.equal(nudged[1].behavior, 'auto');
+});
+
 test('fullwidth and ideographic lookalikes are stored as the mailbox they show', async t => {
     const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));
     const app = await start(dataDir);
