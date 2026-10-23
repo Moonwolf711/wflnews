@@ -168,6 +168,25 @@ function showEmailError(message) {
     revealError();
 }
 
+function clearEmailError() {
+    errorMsg.textContent = '';
+    emailInput.removeAttribute('aria-invalid');
+    emailInput.removeAttribute('aria-describedby');
+}
+
+// The refusal stays on screen after the visitor fixes the mailbox, so it still
+// says the address they are looking at was rejected.
+emailInput.addEventListener('input', function () {
+    if (emailInput.getAttribute('aria-invalid') !== 'true') return;
+    if (emailInput.validity && !emailInput.validity.valid) return;
+    const message = errorMsg.textContent;
+    if (canonicalEmail(emailInput.value)) {
+        clearEmailError();
+        return;
+    }
+    if (message && message !== 'Enter a valid email address.' && emailInput.value.trim()) clearEmailError();
+});
+
 form.addEventListener('submit', async function (event) {
     event.preventDefault();
     if (submitting) return;

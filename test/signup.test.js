@@ -90,6 +90,7 @@ async function client(fetchImpl) {
             addEventListener(name, callback) { this.handlers[name] = callback; },
             reportValidity() { return true; },
             setAttribute(name, value) { this.attributes[name] = value; },
+            getAttribute(name) { return this.attributes[name]; },
             removeAttribute(name) { delete this.attributes[name]; },
             focus() { documentStub.activeElement = this; },
             dispatchEvent(event) { if (this.handlers[event.type]) this.handlers[event.type](event); }
@@ -563,6 +564,67 @@ test('checking the agreement clears its alert and leaves other errors alone', as
     assert.equal(elements['email-input'].attributes['aria-invalid'], 'true');
     assert.equal(elements['email-input'].attributes['aria-describedby'], 'signup-error');
     assert.equal(calls, 0);
+});
+
+test('editing a rejected address clears the stale email error', async () => {
+    let calls = 0;
+    const { elements } = await client(() => { calls++; });
+    elements['agree-check'].checked = true;
+    elements['email-input'].validity = { valid: true };
+    elements['email-input'].value = 'not-an-email';
+    await elements['signup-form'].handlers.submit({ preventDefault() {} });
+    assert.equal(calls, 0);
+    assert.equal(elements['signup-error'].textContent, 'Enter a valid email address.');
+    assert.equal(elements['email-input'].attributes['aria-invalid'], 'true');
+    assert.equal(elements['success-msg'].classes.has('show'), false);
+    // Still not an address. The prompt has to stay.
+    elements['email-input'].value = 'also-bad';
+    elements['email-input'].handlers.input();
+    assert.equal(elements['signup-error'].textContent, 'Enter a valid email address.');
+    assert.equal(elements['email-input'].attributes['aria-invalid'], 'true');
+    elements['email-input'].value = ' reader@example.com ';
+    elements['email-input'].handlers.input();
+    assert.equal(calls, 0);
+    assert.equal(elements['signup-error'].textContent, '');
+    assert.equal(elements['email-input'].attributes['aria-invalid'], undefined);
+    assert.equal(elements['email-input'].attributes['aria-describedby'], undefined);
+    assert.equal(elements['agree-check'].checked, true);
+    assert.equal(elements['submit-btn'].disabled, false);
+    assert.equal(elements['success-msg'].classes.has('show'), false);
+    assert.equal(elements['signup-form'].style.display, undefined);
+
+    elements['email-input'].value = '';
+    elements['email-input'].validity = { valid: false };
+    elements['email-input'].validationMessage = 'Please fill out this field.';
+    await elements['signup-form'].handlers.submit({ preventDefault() {} });
+    assert.equal(elements['signup-error'].textContent, 'Please fill out this field.');
+    assert.equal(elements['email-input'].attributes['aria-invalid'], 'true');
+    elements['email-input'].value = 'a';
+    elements['email-input'].validity = { valid: true };
+    elements['email-input'].validationMessage = '';
+    elements['email-input'].handlers.input();
+    assert.equal(calls, 0);
+    assert.equal(elements['signup-error'].textContent, '');
+    assert.equal(elements['email-input'].attributes['aria-invalid'], undefined);
+
+    // A failed save is still asking for another try, and the consent alert is not about the letters.
+    elements['email-input'].value = 'reader@example.com';
+    elements['email-input'].validity = { valid: true };
+    elements['signup-error'].textContent = 'We couldn’t save your signup. Please try again.';
+    elements['email-input'].removeAttribute('aria-invalid');
+    elements['email-input'].value = 'other@example.com';
+    elements['email-input'].handlers.input();
+    assert.equal(elements['signup-error'].textContent, 'We couldn’t save your signup. Please try again.');
+    elements['agree-check'].checked = false;
+    elements['agree-check'].handlers.change();
+    elements['email-input'].handlers.keydown({ key: 'Enter', isComposing: false, keyCode: 13, preventDefault() {} });
+    assert.equal(elements['signup-error'].textContent, 'Check the box to agree to receive the Weekly Festival Lowdown by email.');
+    elements['email-input'].value = 'reader@example.com';
+    elements['email-input'].handlers.input();
+    assert.equal(calls, 0);
+    assert.equal(elements['signup-error'].textContent, 'Check the box to agree to receive the Weekly Festival Lowdown by email.');
+    assert.equal(elements['agree-check'].attributes['aria-invalid'], 'true');
+    assert.equal(elements['success-msg'].classes.has('show'), false);
 });
 
 test('Enter on an undeliverable address asks for a valid email and does not post', async () => {
