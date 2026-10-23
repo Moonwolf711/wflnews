@@ -537,6 +537,12 @@ body {
     scroll-margin: 39px 0 6px;
 }
 
+/* The 13px box sits on the first line. At 280px the agreement wraps to three
+   lines and 31px hangs below the box, so the shared 6px clips the sentence. */
+.legal-check input:focus-visible {
+    scroll-margin: 39px 0 37px;
+}
+
 /* Respect reduced-motion preferences */
 @media (prefers-reduced-motion: reduce) {
     .bg-gradient,

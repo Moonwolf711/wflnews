@@ -1546,6 +1546,17 @@ test('addresses smtp cannot deliver are rejected before a signup is stored or se
     assert.equal(elements['success-msg'].classes.has('show'), true);
 });
 
+test('focused agreement keeps its wrapped sentence inside a short window', async () => {
+    const css = await fs.readFile(path.join(__dirname, '../styles.css'), 'utf8');
+    // Both landings share this sheet. The 13px box sits on the first line. At
+    // 280px the sentence wraps to three lines and 31px hangs below the box.
+    // The shared 6px scroll-margin only clears the ring, so Tab pins the box
+    // to the fold and cuts the agreement off.
+    const rule = css.match(/\.legal-check input:focus-visible\s*\{[^}]*scroll-margin:\s*39px 0 (\d+)px;/);
+    assert.ok(rule, 'agreement focus needs a scroll-margin that clears the wrapped sentence');
+    assert.ok(Number(rule[1]) >= 37);
+});
+
 test('request limit counts original bytes across chunks with exact boundary acceptance', async t => {
     const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));
     const app = await start(dataDir);
