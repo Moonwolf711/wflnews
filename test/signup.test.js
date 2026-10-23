@@ -1557,6 +1557,32 @@ test('focused agreement keeps its wrapped sentence inside a short window', async
     assert.ok(Number(rule[1]) >= 37);
 });
 
+test('consent error stays inside a short stacked window', async () => {
+    const css = await fs.readFile(path.join(__dirname, '../styles.css'), 'utf8');
+    // Both landings share this sheet. At 280×240 the controls stack. The ticker
+    // ends at 33px and the address stays 6px under it. From that pin the block is
+    // email 58, button 54, agreement gap 15, three-line agreement 45, error gap 12,
+    // and a 96px consent alert: it ends at y=319, 79px past the fold. The same
+    // alert ends at y=280 in a 390×240 window. Reclaiming those 79px keeps the
+    // address below the ticker and the whole sentence on screen.
+    const block = css.match(/@media \(max-width:\s*500px\) and \(max-height:\s*320px\) \{([\s\S]*?)\n\}/);
+    assert.ok(block, 'a short stacked window needs a tighter signup block');
+    const body = block[1];
+    const pad = Number((body.match(/padding-top:\s*(\d+)px/) || [])[1]);
+    const legal = Number((body.match(/\.legal-check \{[^}]*margin-top:\s*(\d+)px/) || [])[1]);
+    const err = body.match(/#signup-error:not\(:empty\) \{[^}]*margin-top:\s*(\d+)px;[^}]*font-size:\s*(\d+)px;[^}]*line-height:\s*1\.25;/);
+    assert.ok(err, 'the consent alert has to shrink with the stacked controls');
+    const errMargin = Number(err[1]);
+    const errSize = Number(err[2]);
+    // 12px type and 1.25 line-height wrap that alert to 45px at 280px wide.
+    const saved = (18 - pad) * 4 + (15 - legal) + (12 - errMargin) + (96 - 45);
+    assert.ok(pad > 0 && pad <= 8);
+    assert.ok(legal > 0 && legal <= 8);
+    assert.ok(errMargin > 0 && errMargin <= 6);
+    assert.ok(errSize > 0 && errSize <= 12);
+    assert.ok(saved >= 79);
+});
+
 test('request limit counts original bytes across chunks with exact boundary acceptance', async t => {
     const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wfl-test-'));
     const app = await start(dataDir);
